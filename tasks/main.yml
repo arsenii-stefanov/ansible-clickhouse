@@ -1,0 +1,109 @@
+---
+
+### OS SPECIFIC VARIABLES
+- name: CLICKHOUSE MAIN TASK | Include OS Specific Variables [Host]
+  include_vars: "{{ ansible_distribution }}_{{ ansible_distribution_release }}.yml"
+  tags: [always]
+
+### PRE INSTALLATION TASKS
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Check Task [Common]
+  include_tasks: "00-clickhouse-check.yml"
+  tags: [always]
+
+### SERVER CONFIGURATION
+- name: CLICKHOUSE MAIN TASK | Include System Configuration Task [Common]
+  include_tasks: "10-system-config.yml"
+  tags: [always]
+
+- name: CLICKHOUSE MAIN TASK | Include Disk Configuration Task [Common]
+  include_tasks: "15-disk-config.yml"
+  when:
+    - clickhouse_disk_mounts is defined
+    - clickhouse_disk_mounts != ""
+  tags: [always]
+
+### CLICKHOUSE SERVER CONFIGURATION
+- name: CLICKHOUSE MAIN TASK | Include Config Task [Host]
+  include_tasks: "20-clickhouse-config-host.yml"
+  when: clickhouse_installation_type == "host"
+  tags: [always]
+
+- name: CLICKHOUSE MAIN TASK | Include Config task [Docker]
+  include_tasks: "20-clickhouse-config-docker.yml"
+  when: clickhouse_installation_type == "docker"
+  tags: [always]
+
+### CLICKHOUSE SSL
+- name: CLICKHOUSE MAIN TASK | Include SSL Task [Host]
+  include_tasks: "20-clickhouse-ssl-host.yml"
+  when:
+    - clickhouse_generate_self_signed_ssl is defined
+    - clickhouse_generate_self_signed_ssl == true
+    - clickhouse_installation_type == "host"
+  tags: [always]
+
+- name: CLICKHOUSE MAIN TASK | Include SSL Task [Docker]
+  include_tasks: "20-clickhouse-ssl-docker.yml"
+  when:
+    - clickhouse_generate_self_signed_ssl is defined
+    - clickhouse_generate_self_signed_ssl == true
+    - clickhouse_installation_type == "docker"
+  tags: [always]
+
+### CLICKHOUSE INSTALLATION
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Installation Task [Host]
+  include_tasks: "30-clickhouse-install-host-{{ ansible_distribution }}.yml"
+  when:
+    - clickhouse_installation_type == "host"
+#    - clickhouse_installed_host == false
+    - clickhouse_installed_docker == false
+
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Installation Task [Docker]
+  include_tasks: "30-clickhouse-install-docker.yml"
+  when:
+    - clickhouse_installation_type == "docker"
+    - clickhouse_installed_host == false
+
+- name: CLICKHOUSE MAIN TASK | Include Config task [Common]
+  include_tasks: "20-clickhouse-validate-config.yml"
+  when: clickhouse_installed_host == true or clickhouse_installed_docker == true
+  tags: [always]
+
+- name: CLICKHOUSE MAIN TASK | HealthCheck
+  include_tasks: "35-clickhouse-healthcheck.yml"
+  tags: [always]
+
+### POST INSTALLATION TASKS
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Secure, Host]
+  include_tasks: "50-clickhouse-post-task-secure-host.yml"
+  when:
+    - clickhouse_installation_type == "host"
+    - clickhouse_ssl['native_interface_ssl_enable'] is defined
+    - clickhouse_ssl['native_interface_ssl_enable'] == true
+    - clickhouse_ssl['native_interface_ssl_only'] is defined
+    - clickhouse_ssl['native_interface_ssl_only'] == true
+  tags: [always]
+
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Insecure, Host]
+  include_tasks: "50-clickhouse-post-task-insecure-host.yml"
+  when:
+    - clickhouse_installation_type == "host"
+    - ( clickhouse_ssl['native_interface_ssl_only'] is defined and clickhouse_ssl['native_interface_ssl_only'] == false ) or ( clickhouse_ssl['native_interface_ssl_only'] is not defined )
+  tags: [always]
+
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Secure, Docker]
+  include_tasks: "50-clickhouse-post-task-secure-docker.yml"
+  when:
+    - clickhouse_installation_type == "docker"
+    - clickhouse_ssl['native_interface_ssl_enable'] is defined
+    - clickhouse_ssl['native_interface_ssl_enable'] == true
+    - clickhouse_ssl['native_interface_ssl_only'] is defined
+    - clickhouse_ssl['native_interface_ssl_only'] == true
+  tags: [always]
+
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Insecure, Docker]
+  include_tasks: "50-clickhouse-post-task-insecure-docker.yml"
+  when:
+    - clickhouse_installation_type == "docker"
+    - ( clickhouse_ssl['native_interface_ssl_only'] is defined and clickhouse_ssl['native_interface_ssl_only'] == false ) or ( clickhouse_ssl['native_interface_ssl_only'] is not defined )
+  tags: [always]

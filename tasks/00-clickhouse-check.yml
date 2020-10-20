@@ -1,0 +1,67 @@
+- name: CLICKHOUSE REQUIREMENTS TASK | Checking sse4_2 Support
+  command: "grep -q sse4_2 /proc/cpuinfo"
+  register: sse4_2_check
+  ignore_errors: yes
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Register the 'sse4_2_supported' Variable
+  set_fact:
+    sse4_2_supported: true
+  when: sse4_2_check.rc == 0
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Fail the Play If Installation Is Not Supported
+  fail:
+    msg: "sse4_2 is not supported on this server"
+  when: sse4_2_supported is not defined or (sse4_2_supported is defined and sse4_2_supported != true)
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Check If Docker Is Installed [Host]
+  stat:
+    path: "{{ docker_binary_path }}"
+  register: docker_daemon_check
+  changed_when: false
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Register the 'docker_installed' Variable
+  set_fact:
+    docker_installed: "{{ docker_daemon_check.stat.exists|bool }}"
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Check If ClickHouse Is Installed [Host]
+  stat:
+    path: "{{ clickhouse_binary_path }}"
+  register: clickhouse_check_host
+  changed_when: false
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Check If ClickHouse Is Installed [Docker]
+  docker_container_info:
+    name: "{{ clickhouse_config['docker_opts']['container_name'] | default('clickhouse') }}"
+  register: docker_container_info
+  changed_when: false
+  when: docker_installed == true
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Register the 'clickhouse_installed' Variable
+  set_fact:
+    clickhouse_installed_host: "{{ clickhouse_check_host.stat.exists|bool }}"
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Register the 'clickhouse_installed' Variable
+  set_fact:
+    clickhouse_installed_docker: "{{ docker_container_info.exists|bool }}"
+  when: docker_installed == true
+
+- name: CLICKHOUSE REQUIREMENTS TASK | Register the 'clickhouse_installed' Variable
+  set_fact:
+    clickhouse_installed_docker: false
+  when: docker_installed == false
+
+- debug:
+    msg: "ClickHouse Server is installed on the host machine directly"
+  when:
+    - clickhouse_installed_host == true
+
+- debug:
+    msg: "ClickHouse Server is installed in Docker"
+  when:
+    - clickhouse_installed_docker == true
+
+- debug:
+    msg: "No ClickHouse installation has been found on this server"
+  when:
+    - clickhouse_installed_host == false
+    - clickhouse_installed_docker == false

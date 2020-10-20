@@ -1,0 +1,38 @@
+---
+
+######################################################################################################################
+###                                                                                                                ###
+###     ClickHouse tracks changes in the config files and reloads users and clusters configurations on the fly     ###
+###     You can add or change users, clusters and their settings without restarting the server                     ###
+###     For remote_servers the server reads config immediately after the request                                   ###
+###                                                                                                                ###
+######################################################################################################################
+
+- name: CLICKHOUSE DOCKER TASK | Ensure That Docker Networks Exist
+  docker_network:
+    name: "{{ item.name }}"
+  with_items: "{{ clickhouse_config['docker_opts']['networks'] }}"
+
+- name: CLICKHOUSE DOCKER TASK | Start Docker Container
+  docker_container:
+    name: "{{ clickhouse_config['docker_opts']['container_name'] }}"
+    image: "{{ clickhouse_config['docker_opts']['image_name'] }}:{{ clickhouse_config['docker_opts']['image_tag'] }}"
+    state: started
+    restart_policy: always
+    detach: yes
+    interactive: yes
+    tty: yes
+    command: "{{ clickhouse_config['docker_opts']['command'] | default(omit) }}"
+    ports: "{{ clickhouse_config['docker_opts']['ports'] | default(omit) }}"
+    env: "{{ clickhouse_config['docker_opts']['env_vars'] | default(omit) }}"
+    volumes: "{{ clickhouse_config['docker_opts']['volumes'] | default(omit) }}"
+    ulimits: "{{ clickhouse_config['docker_opts']['ulimits'] | default(omit) }}"
+    capabilities: "{{ clickhouse_config['docker_opts']['capabilities'] | default(omit) }}"
+    security_opts: "{{ clickhouse_config['docker_opts']['security_opts'] | default(omit) }}"
+    log_driver: "{{ clickhouse_config['docker_opts']['log_driver'] | default(omit) }}"
+    log_options: "{{ clickhouse_config['docker_opts']['log_options'] | default(omit) }}"
+    hostname: "{{ clickhouse_config['docker_opts']['hostname'] | default(omit) }}"
+    network_mode: "{{ clickhouse_config['docker_opts']['network_mode'] | default(omit) }}"
+    networks: "{{ clickhouse_config['docker_opts']['networks'] | default(omit) }}"
+    purge_networks: "{{ clickhouse_config['docker_opts']['purge_networks'] | default(omit) }}"
+  no_log: "{{ item.no_log | default(false) }}"

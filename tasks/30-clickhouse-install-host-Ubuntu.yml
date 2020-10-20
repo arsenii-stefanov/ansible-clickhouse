@@ -1,0 +1,38 @@
+---
+
+# Reference: https://clickhouse.yandex/docs/en/getting_started/index.html#installation
+
+- name: CLICKHOUSE INSTALLATION TASK | Add the Repo Key
+  apt_key:
+    keyserver: "{{ clickhouse_repo_keyserver }}"
+    id: "{{ clickhouse_repo_key }}"
+
+- name: CLICKHOUSE INSTALLATION TASK | Add the Repo
+  apt_repository:
+    repo: "{{ clickhouse_repo }}"
+    state: present
+    mode: "0644"
+
+- name: CLICKHOUSE INSTALLATION TASK | Install ClickHouse
+  apt:
+    name: "{{ clickhouse_package }}"
+    state: present
+  register: clickhouse_install
+
+- name: CLICKHOUSE INSTALLATION TASK  | Ensure That the Systemd Service Exists
+  template:
+    src: "{{ clickhouse_systemd_service_template }}"
+    dest: "/etc/systemd/system/{{ clickhouse_systemd_service_name }}.service"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  register: systemd_service
+  when: ansible_service_mgr == "systemd"
+
+- name: CLICKHOUSE INSTALLATION TASK  | Ensure That the SystemD Service Is Enabled and Restarted
+  systemd:
+    daemon_reload: true
+    name: "{{ clickhouse_systemd_service_name }}"
+    enabled: true
+    state: "restarted"
+  when: systemd_service.changed or clickhouse_install.changed

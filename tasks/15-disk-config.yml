@@ -1,0 +1,34 @@
+---
+
+- name: CLICKHOUSE DISK CONFIG TASK | Ensure That the Filesystem Is Created
+  filesystem:
+    fstype: "{{ item.fstype }}"
+    dev: "{{ item.src }}"
+    opts: "{{ item.fs_opts }}"
+    force: no
+  with_items: "{{ clickhouse_disk_mounts }}"
+  when: clickhouse_disk_mounts is defined and clickhouse_disk_mounts != ""
+
+- name: CLICKHOUSE DISK CONFIG TASK | Ensure That the Mount Directories Exist
+  file:
+    path: "{{ item.dest }}"
+    state: directory
+    owner: "{{ item.owner | default('owner') }}"
+    group: "{{ item.group | default('group') }}"
+    mode: "{{ item.mode | default(0755) }}"
+  with_items: "{{ clickhouse_disk_mounts }}"
+
+- name: CLICKHOUSE DISK CONFIG TASK | Ensure That the Disk Is Mounted
+  mount:
+    path: "{{ item.dest }}"
+    src: "{{ item.src }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.mount_opts }}"
+    state: "{{ item.state }}"
+  with_items: "{{ clickhouse_disk_mounts }}"
+  notify:
+    - "restart_clickhouse_host_secure"
+    - "restart_clickhouse_host_insecure"
+    - "restart_clickhouse_docker_secure"
+    - "restart_clickhouse_docker_insecure"
+  when: clickhouse_disk_mounts is defined and clickhouse_disk_mounts != ""

@@ -1,0 +1,54 @@
+---
+
+######################################################################################################################
+###                                                                                                                ###
+###     ClickHouse tracks changes in the config files and reloads users and clusters configurations on the fly     ###
+###     You can add or change users, clusters and their settings without restarting the server                     ###
+###     For remote_servers the server reads config immediately after the request                                   ###
+###                                                                                                                ###
+######################################################################################################################
+
+- name: CLICKHOUSE CONFIG TASK | Create a Unix Group for ClickHouse
+  group:
+    name: "{{ clickhouse_group_host['name'] }}"
+    state: "present"
+    gid: "{{ clickhouse_group_host['gid'] | default(omit) }}"
+  tags: [config_server]
+
+- name: CLICKHOUSE CONFIG TASK | Create a Unix User for ClickHouse
+  user:
+    name: "{{ clickhouse_owner_host['name'] }}"
+    state: "present"
+    uid: "{{ clickhouse_owner_host['uid'] | default(omit) }}"
+    comment: "{{ clickhouse_owner_host['comment'] }}"
+    group: "{{ clickhouse_owner_host['group'] }}"
+    home: "{{ clickhouse_owner_host['home'] }}"
+    shell: "{{ clickhouse_owner_host['shell'] }}"
+  tags: [config_server]
+
+- name: CLICKHOUSE CONFIG TASK | Ensure That Directories Exist [Host]
+  file:
+    path: "{{ item.host_dir }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  with_items: "{{ clickhouse_directories_host }}"
+  tags: [config_server]
+
+- name: CLICKHOUSE CONFIG TASK | Ensure That Config Files Exist [Host]
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  with_items: "{{ clickhouse_files_host }}"
+  tags: [config_server]
+
+- name: CLICKHOUSE CONFIG TASK | Create Symlinks [Host]
+  file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+  with_items: "{{ clickhouse_symlinks }}"

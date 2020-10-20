@@ -1,0 +1,13 @@
+---
+
+- name: CLICKHOUSE VALIDATE CONFIG | Validate ClickHouse Config Files [Host]
+  shell: "{{ clickhouse_config_validation_bin }} --config-file {{ item.config_file }} --key {{ item.config_key }}"
+  with_items: "{{ clickhouse_validate_config_files }}"
+  when: clickhouse_installation_type == "host"
+  tags: [config_server]
+
+- name: CLICKHOUSE VALIDATE CONFIG | Validate ClickHouse Config Files [Docker]
+  shell: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c '{{ clickhouse_config_validation_bin }} --config-file {{ item.config_file }} --key {{ item.config_key }}'"
+  with_items: "{{ clickhouse_validate_config_files }}"
+  when: clickhouse_installation_type == "docker"
+  tags: [config_server]

@@ -1,0 +1,24 @@
+---
+
+- name: CLICKHOUSE POST INSTALLATION TASK HOST | Get the List of Existing Databases
+  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port_secure }} --secure -q 'SHOW DATABASES'"
+  changed_when: False
+  register: existing_databases
+  tags: [config_db]
+
+- name: CLICKHOUSE POST INSTALLATION TASK HOST | Show Existing Databases
+  debug:
+    var: existing_databases.stdout_lines
+  tags: [config_db]
+
+- name: CLICKHOUSE POST INSTALLATION TASK HOST | Delete Databases
+  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port_secure }} --secure -q 'DROP DATABASE IF EXISTS `{{ item.name }}`'"
+  with_items: "{{ clickhouse_dbs }}"
+  when: item.state is defined and item.state == 'absent' and item.name in existing_databases.stdout_lines
+  tags: [config_db]
+
+- name: CLICKHOUSE POST INSTALLATION TASK HOST | Create Databases
+  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port_secure }} --secure -q 'CREATE DATABASE IF NOT EXISTS `{{ item.name }}`'"
+  with_items: "{{ clickhouse_dbs }}"
+  when: (item.state is undefined or item.state == 'present') and item.name not in existing_databases.stdout_lines
+  tags: [config_db]

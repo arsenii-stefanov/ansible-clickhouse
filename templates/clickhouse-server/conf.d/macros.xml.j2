@@ -1,0 +1,10 @@
+#jinja2:lstrip_blocks: True
+<?xml version="1.0"?>
+<!-- {{ ansible_managed }} -->
+<yandex>
+  <macros>
+  	<cluster>{{ clickhouse_cluster_name }}</cluster>
+    <shard>{{ clickhouse_macro['shard'] }}</shard>
+    <replica>{{ clickhouse_macro['replica'] }}</replica>
+  </macros>
+</yandex>

@@ -1,0 +1,464 @@
+---
+
+clickhouse_installation_type: "docker"        # Available options: host, docker
+
+clickhouse_cluster_name: "clickhouse_cluster"
+clickhouse_node_hostname: "{{ ansible_facts.fqdn }}"    # This should be a valid DNS (or IP, but DNS is preferrable) by which your nodes can reach each other
+
+##########################
+###     DISK MOUNTS    ###
+##########################
+clickhouse_main_mount_dir: "/srv"
+clickhouse_disk_mounts:
+  - src: "/dev/sdb"
+    dest: "{{ clickhouse_main_mount_dir }}"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+    fstype: "ext4"
+    fs_opts: "-m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard"
+    mount_opts: "discard,defaults,nofail"
+    state: mounted
+
+#############################
+###     SYSTEM CONFIGS    ###
+#############################
+clickhouse_sysctl_config: [
+  { name: "vm.max_map_count", value: "262144", state: "present" }
+]
+
+### Dictionary
+clickhouse_limits_host:
+  max_open_files: 500000    # default value
+
+### List
+clickhouse_limits_docker:
+  - "nofile:500000:500000"
+
+clickhouse_linux_capabilities_host:
+  - "CAP_NET_ADMIN"
+  - "CAP_IPC_LOCK"
+  - "CAP_SYS_NICE"
+
+clickhouse_linux_capabilities_docker:
+  - "NET_ADMIN"
+  - "IPC_LOCK"
+  - "SYS_NICE"
+
+### By default the official Yandex ClickHouse Docker image uses UID:GID 101:101. The user/group name does not matter, we just need to make sure the ClickHouse directories on the host machine are owned by the correct UID and GID  
+clickhouse_owner_docker:
+  name: ""
+  uid: "101"
+
+clickhouse_group_docker:
+  name: ""
+  gid: "101"
+
+######################################
+###     CLICKHOUSE LISTEN PORTS    ###
+######################################
+clickhouse_http_port: 8123
+clickhouse_https_port: 8443
+clickhouse_tcp_port: 9000
+clickhouse_tcp_port_secure: 9440
+clickhouse_interserver_http_port: 9009
+clickhouse_interserver_https_port: 9449
+
+##################################
+###     CLICKHOUSE BINARIES    ###
+##################################
+clickhouse_config_validation_bin: "clickhouse-extract-from-config"
+
+##############################################################
+###     CLICKHOUSE TEMPLATES (ANSIBLE JINJA2 TEMPLATES)    ###
+##############################################################
+### If you want to use custom config files, feel free to change this variable to your constom directory, say, "{{ playbook_dir }}/config-templates/clickhouse"
+clickhouse_server_templates_dir: "clickhouse-server"
+clickhouse_client_templates_dir: "clickhouse-client"
+
+###################################################
+###     CLICKHOUSE DIRECTORIES [DOCKER HOST]    ###
+###################################################
+clickhouse_main_data_dir: "{{ clickhouse_main_mount_dir }}/clickhouse-data"
+clickhouse_main_server_config_dir: "{{ clickhouse_main_mount_dir }}/clickhouse-server-config"
+clickhouse_include_server_config_dir: "{{ clickhouse_main_server_config_dir }}/conf.d"
+clickhouse_main_client_config_dir: "{{ clickhouse_main_mount_dir }}/clickhouse-client-config"
+clickhouse_include_client_config_dir: "{{ clickhouse_main_client_config_dir }}/conf.d"
+clickhouse_ssl_dir: "{{ clickhouse_main_server_config_dir }}/ssl"
+clickhouse_log_dir: "{{ clickhouse_main_mount_dir }}/clickhouse-logs"
+
+clickhouse_data_dir: "{{ clickhouse_main_data_dir }}/data"
+clickhouse_shadow_dir: "{{ clickhouse_main_data_dir }}/shadow"
+clickhouse_access_dir: "{{ clickhouse_main_data_dir }}/access"
+clickhouse_prep_conf_dir: "{{ clickhouse_main_data_dir }}/preprocessed_configs"
+clickhouse_store_dir: "{{ clickhouse_main_data_dir }}/store"
+clickhouse_metadata_dir: "{{ clickhouse_main_data_dir }}/metadata"
+clickhouse_tmp_dir: "{{ clickhouse_main_data_dir }}/tmp"
+clickhouse_format_schemas_dir: "{{ clickhouse_main_data_dir }}/format_schemas"
+#clickhouse_ssl_dir: "{{ clickhouse_main_data_dir }}/ssl"
+
+##############################################
+###     CLICKHOUSE DIRECTORIES [DOCKER]    ###
+##############################################
+
+# Define default host directories in case there is no Ansible Vars file for the current Linux distribution
+clickhouse_default_main_dir: "/var/lib/clickhouse"
+#clickhouse_default_ssl_dir: "{{ clickhouse_default_main_dir }}/ssl"
+clickhouse_default_main_server_config_dir: "/etc/clickhouse-server"
+clickhouse_default_ssl_dir: "{{ clickhouse_default_main_server_config_dir }}/ssl"
+clickhouse_default_include_server_config_dir: "{{ clickhouse_default_main_server_config_dir }}/conf.d"
+clickhouse_default_main_client_config_dir: "/etc/clickhouse-client"
+clickhouse_default_include_client_config_dir: "{{ clickhouse_default_main_client_config_dir }}/conf.d"
+clickhouse_default_log_dir: "/var/log/clickhouse-server"
+
+clickhouse_directories_container:
+### CONFIG DIR
+  - host_dir: "{{ clickhouse_main_server_config_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_include_server_config_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_ssl_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_main_client_config_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_include_client_config_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+#### DATA DIR
+  - host_dir: "{{ clickhouse_main_data_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+### LOG DIR
+  - host_dir: "{{ clickhouse_log_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+### DATA SUBDIRS
+  - host_dir: "{{ clickhouse_data_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_shadow_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_access_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_prep_conf_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_store_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_metadata_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  - host_dir: "{{ clickhouse_tmp_dir }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0750"
+  # - host_dir: "{{ clickhouse_ssl_dir }}"
+  #   owner: "{{ clickhouse_owner_docker['uid'] }}"
+  #   group: "{{ clickhouse_group_docker['gid'] }}"
+  #   mode: "0750"
+
+#####################################################################
+###     CLICKHOUSE FILES (YOU'D BETTER NOT CHANGE THEIR NAMES)    ###
+#####################################################################
+clickhouse_main_config_file: "config.xml"
+clickhouse_remote_servers_config_file: "clickhouse-remote-servers.xml"
+clickhouse_dicts_config_file: "auto-dictionary.xml"
+clickhouse_macros_config_file: "macros.xml"
+clickhouse_users_config_file: "users.xml"
+clickhouse_zookeeper_config_file: "zookeeper-servers.xml"
+clickhouse_main_client_config_file: "config.xml"
+
+clickhouse_files_container:
+### MAIN CONFIG DIR
+  - src: "{{ clickhouse_server_templates_dir }}/{{ clickhouse_main_config_file }}.j2"
+    dest: "{{ clickhouse_main_server_config_dir }}/{{ clickhouse_main_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
+  - src: "{{ clickhouse_server_templates_dir }}/{{ clickhouse_users_config_file }}.j2"
+    dest: "{{ clickhouse_main_server_config_dir }}/{{ clickhouse_users_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
+  - src: "{{ clickhouse_server_templates_dir }}/{{ clickhouse_dicts_config_file }}.j2"
+    dest: "{{ clickhouse_main_server_config_dir }}/{{ clickhouse_dicts_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
+### INCLUDE CONFIG DIR: 'conf.d'
+  - src: "{{ clickhouse_server_templates_dir }}/conf.d/{{ clickhouse_remote_servers_config_file }}.j2"
+    dest: "{{ clickhouse_include_server_config_dir }}/{{ clickhouse_remote_servers_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
+  - src: "{{ clickhouse_server_templates_dir }}/conf.d/{{ clickhouse_zookeeper_config_file }}.j2"
+    dest: "{{ clickhouse_include_server_config_dir }}/{{ clickhouse_zookeeper_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
+  - src: "{{ clickhouse_server_templates_dir }}/conf.d/{{ clickhouse_macros_config_file }}.j2"
+    dest: "{{ clickhouse_include_server_config_dir }}/{{ clickhouse_macros_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
+### CLIENT CONFIG DIR
+  - src: "{{ clickhouse_client_templates_dir }}/{{ clickhouse_main_client_config_file }}.j2"
+    dest: "{{ clickhouse_main_client_config_dir }}/{{ clickhouse_main_client_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
+
+### CONFIG FILES VALIDATION
+### Example: clickhouse-extract-from-config --config-file /etc/clickhouse-server/config.xml --key=path
+### If the config file has a syntax error, you will get an error when you try to export any of the its keys
+clickhouse_validate_config_files:
+- config_file: "{{ clickhouse_default_main_server_config_dir }}/{{ clickhouse_main_config_file }}"
+  config_key: "path"
+- config_file: "{{ clickhouse_default_include_server_config_dir }}/{{ clickhouse_remote_servers_config_file }}"
+  config_key: "remote_servers"
+- config_file: "{{ clickhouse_default_main_server_config_dir }}/{{ clickhouse_users_config_file }}"
+  config_key: "users"
+- config_file: "{{ clickhouse_default_include_server_config_dir }}/{{ clickhouse_zookeeper_config_file }}"
+  config_key: "zookeeper"
+- config_file: "{{ clickhouse_default_include_server_config_dir }}/{{ clickhouse_macros_config_file }}"
+  config_key: "macros"
+- config_file: "{{ clickhouse_default_main_server_config_dir }}/{{ clickhouse_dicts_config_file }}"
+  config_key: "dictionaries"
+
+#clickhouse_version: "20.3.15"        # Docker tag
+clickhouse_version: "20.3.15.133"    # Ubuntu APT package
+
+################################
+###     CLICKHOUSE CONFIG    ###
+################################
+clickhouse_docker_network: "clickhouse"
+
+clickhouse_server_config:
+  max_connections: 2048
+  keep_alive_timeout: 3
+  max_concurrent_queries: 100
+  uncompressed_cache_size: 8589934592
+  mark_cache_size: 5368709120
+  builtin_dictionaries_reload_interval: 3600
+  max_session_timeout: 3600
+  default_session_timeout: 60
+
+clickhouse_docker_env_vars:
+  CLICKHOUSE_CONFIG: "/etc/clickhouse-server/config.xml"
+
+### You may needs this if you want to run ClickHouse in Docker on a Ubuntu host with AppArmor enabled (otherwise, you won't be able to add Linux Capabilities)
+clickhouse_docker_security_opts:
+  - "apparmor:unconfined"
+
+clickhouse_docker_log_options:
+  max-file: 10
+  max-size: "100m"
+
+clickhouse_config:
+  global:
+    major_version: "{{ clickhouse_version.split('.')[0] }}"
+    status_check_retries: "20"  # a number of retries when checking the node status
+    status_check_delay: "15"    # a delay in seconds when checking the node status
+  docker_opts:
+    container_name: "clickhouse"
+    image_name: "yandex/clickhouse-server"
+    image_tag: "{{ clickhouse_version }}"
+    command: "{{ clickhouse_command | default(omit) }}"
+    ports:
+      - "{{ clickhouse_http_port }}:{{ clickhouse_http_port }}"
+      - "{{ clickhouse_https_port }}:{{ clickhouse_https_port }}"
+      - "{{ clickhouse_tcp_port }}:{{ clickhouse_tcp_port }}"
+      - "{{ clickhouse_tcp_port_secure }}:{{ clickhouse_tcp_port_secure }}"
+      - "{{ clickhouse_interserver_http_port }}:{{ clickhouse_interserver_http_port }}"
+      - "{{ clickhouse_interserver_https_port }}:{{ clickhouse_interserver_https_port }}"
+    env_vars: "{{ clickhouse_docker_env_vars | default(omit) }}"
+    volumes:
+      - "{{ clickhouse_main_data_dir }}:{{ clickhouse_default_main_dir }}"
+      - "{{ clickhouse_main_server_config_dir }}:{{ clickhouse_default_main_server_config_dir }}"
+      - "{{ clickhouse_main_client_config_dir }}:{{ clickhouse_default_main_client_config_dir }}"
+      - "{{ clickhouse_log_dir }}:{{ clickhouse_default_log_dir }}"
+    hostname: "{{ clickhouse_node_hostname }}"
+    networks:
+      - name: "{{ clickhouse_docker_network }}"
+    network_mode: "{{ clickhouse_docker_network_mode | default(omit) }}"
+    log_options: "{{ clickhouse_docker_log_options | default(omit) }}"
+    ulimits: "{{ clickhouse_limits_docker | default(omit) }}"
+    capabilities: "{{ clickhouse_linux_capabilities_docker | default(omit) }}"
+    security_opts: "{{ clickhouse_docker_security_opts | default(omit) }}"
+
+########################################################################
+###     CLICKHOUSE REMOTE SERVERS (clickhouse-remote-servers.xml)    ###
+########################################################################
+### Whether to write data to just one of the replicas. Default: false (write data to all replicas)
+clickhouse_internal_replication: "false"
+### Use ssl for connection, usually you also should define port = 9440. Server should listen on <tcp_port_secure>9440</tcp_port_secure> and have correct certificates.
+clickhouse_interserver_tcp_ssl: false
+### If a user is not set, and '<secret></secret>' is defined, then the initial_user (the user who initiated the query) should be used
+clickhouse_interserver_user: "interserver-user"
+
+################################
+###     SSL CERTIFICATES     ###
+################################
+clickhouse_ssl: false
+
+clickhouse_root_ca_cert_name: "ca.crt"
+clickhouse_root_ca_key_name: "ca.key"
+clickhouse_node_csr_name: "server.csr"
+clickhouse_node_cert_name: "server.crt"
+clickhouse_node_key_name: "server.key"
+clickhouse_node_dhparam_name: "dhparam.pem"
+
+### Shell command for generating a Root CA and key: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out root-ca.pem -days 3650 -nodes -subj "/C=US/ST=NY/L=NewYork/O=MyOrganization/OU=IT/CN=clickhouse.local/emailAddress=admin@clickhouse.local"
+clickhouse_openssl_csr:
+  common_name: "clickhouse.local"
+  country_name: "US"
+  state_or_province_name: "NY"
+  locality_name: "NY"
+  organizational_unit_name: "IT"
+  organization_name: "MyOrganization"
+  email_address: "admin@clickhouse.local"
+  subject_alt_name:
+    - "DNS:{{ clickhouse_node_hostname }}"
+    - "IP:{{ ansible_host }}"
+
+clickhouse_ssl:
+### Default HTTP interface
+  http_interface_ssl_enable: false
+  http_interface_ssl_only: false
+### Native interface
+  native_interface_ssl_enable: false
+  native_interface_ssl_only: false
+### Same Native interface but for dictributed queries
+  distributed_query_ssl_enable: false
+### Communication between replicas. Used for data exchange (apparently, if there is no Zookeeper)
+  interserver_repl_ssl_enable: false    # if enabled, you must set the `clickhouse_interserver_https_host` too
+
+#################################################
+###     CLICKHOUSE SERVER LISTEN ADDRESSES    ###
+#################################################
+### It is recommended to keep Listen Host empty in order for ClickHouse nodes to be able to communicate with each other
+clickhouse_listen_host_default: []
+#  - "::1"
+#  - "127.0.0.1"
+clickhouse_listen_host_custom:
+  - "0.0.0.0"
+clickhouse_listen_host: "{{ clickhouse_listen_host_default + clickhouse_listen_host_custom }}"
+
+##################################
+###     CLICKHOUSE PROFILES    ###
+##################################
+clickhouse_profiles_default:
+  default:
+    max_memory_usage: 10000000000
+    use_uncompressed_cache: 0
+    load_balancing: random
+  readonly:
+    readonly: 1
+
+clickhouse_profiles_custom: ""
+
+####################################################################
+###     CLICKHOUSE IPs/SUBNETS TO ALLOW USERS TO CONNECT FROM    ###
+####################################################################
+clickhouse_networks_default:
+  - "127.0.0.1"
+
+### If you want to restrict direct access to ClickHouse nodes and only allow access via your Load Balancer, then whitelist your Load Balancer IP/subnet
+clickhouse_networks_custom:
+  gcp-internal:
+    - "10.128.0.0/9"
+  docker:
+    - "172.16.0.0/12"
+
+##########################################
+###     CLICKHOUSE USERS AND QUOTAS    ###
+##########################################
+clickhouse_quotas_intervals_default: [
+  { duration: 3600, queries: 0, errors: 0,result_rows: 0,read_rows: 0,execution_time: 0 }
+]
+
+clickhouse_quotas_default: [
+  { name: "default", intervals: "{{ clickhouse_quotas_intervals_default }}", comment: "Default quota - count only" }
+]
+
+clickhouse_quotas_custom: []
+
+clickhouse_users_default:
+  - name: "default"
+    password: ""
+    networks: "{{ clickhouse_networks_default }}"
+    profile: "default"
+    quota: "default"
+    comment: "Default user for login if user not defined"
+    dbs:
+      - "default"
+      - "system"
+### the 'system_user' options allows your user to connect from one CH node to another by adding the CH nodes' IPs to <networks></networks>
+#    system_user: true
+  - name: "readonly"
+    password: ""
+    networks: "{{ clickhouse_networks_default }}"
+    profile: "default"
+    quota: "default"
+    comment: "Example of user with readonly access"
+    dbs:
+      - "default"
+
+clickhouse_users_custom: []
+#  - name: "monitoring"
+#    password: "VerySecurePassword"
+#    networks: "{{ clickhouse_networks_custom['gcp-internal'] + clickhouse_networks_custom['docker'] }}"
+#    profile: "readonly"
+#    quota: "default"
+#    comment: "Monitoring user with read only access"
+
+
+##################################
+###     CLICKHOUSE DATABASES   ###
+##################################
+clickhouse_dbs_default: []
+clickhouse_dbs_custom: []
+
+clickhouse_dbs: "{{ clickhouse_dbs_default + clickhouse_dbs_custom }}"
+
+clickhouse_logger:
+  server-log:
+    level: trace
+    log: "{{ clickhouse_default_log_dir }}/clickhouse-server.log"
+    errorlog: "{{ clickhouse_default_log_dir }}/clickhouse-server.err.log"
+    size: 1000M
+    count: 10
+  query-log:
+    database: "system"
+    table: "query_log"
+    partition_by: "toYYYYMM(event_date)"
+    flush_interval_milliseconds: 7500
+
+clickhouse_dicts: []
+
+clickhouse_zookeeper_config:
+  resharding:
+    task_queue_path: "/clickhouse/{{ clickhouse_cluster_name }}/task_queue"
+  ### Allow to execute distributed DDL queries (CREATE, DROP, ALTER, RENAME) on cluster. Works only if ZooKeeper is enabled. Comment it if such functionality isn't required  
+  distributed_ddl:
+    path: "/clickhouse/{{ clickhouse_cluster_name }}/task_queue/ddl"

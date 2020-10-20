@@ -1,0 +1,56 @@
+---
+
+- name: clickhouse_healthcheck_secure
+  uri:
+    url: "http://127.0.0.1:{{ clickhouse_https_port }}/ping"
+    validate_certs: false
+    status_code: 200
+  register: ch_result
+  until: ch_result.status == 200
+  retries: "{{ clickhouse_config['global']['status_check_retries'] }}"
+  delay: "{{ clickhouse_config['global']['status_check_delay'] }}"
+  when:
+    - clickhouse_ssl['http_interface_ssl_enable'] is defined
+    - clickhouse_ssl['http_interface_ssl_enable'] == true
+
+- name: clickhouse_healthcheck_insecure
+  uri:
+    url: "http://127.0.0.1:{{ clickhouse_http_port }}/ping"
+    status_code: 200
+  register: ch_result
+  until: ch_result.status == 200
+  retries: "{{ clickhouse_config['global']['status_check_retries'] }}"
+  delay: "{{ clickhouse_config['global']['status_check_delay'] }}"
+  when: ( clickhouse_ssl['http_interface_ssl_enable'] is defined and clickhouse_ssl['http_interface_ssl_enable'] == false ) or ( clickhouse_ssl['http_interface_ssl_enable'] is not defined )
+
+- name: restart_clickhouse_host_secure
+  systemd:
+    name: "{{ clickhouse_systemd_service_name }}"
+    state: "restarted"
+  notify: "clickhouse_healthcheck_secure"
+  when:
+    - clickhouse_ssl['http_interface_ssl_enable'] is defined
+    - clickhouse_ssl['http_interface_ssl_enable'] == true
+
+- name: restart_clickhouse_host_insecure
+  systemd:
+    name: "{{ clickhouse_systemd_service_name }}"
+    state: "restarted"
+  notify: "clickhouse_healthcheck_insecure"
+  when: ( clickhouse_ssl['http_interface_ssl_enable'] is defined and clickhouse_ssl['http_interface_ssl_enable'] == false ) or ( clickhouse_ssl['http_interface_ssl_enable'] is not defined )
+
+- name: restart_clickhouse_docker_secure
+  docker_container:
+    name: "{{ clickhouse_config['docker_opts']['container_name'] }}"
+    state: restarted
+  notify: "clickhouse_healthcheck_secure"
+  when:
+    - clickhouse_ssl['http_interface_ssl_enable'] is defined
+    - clickhouse_ssl['http_interface_ssl_enable'] == true
+
+- name: restart_clickhouse_docker_insecure
+  docker_container:
+    name: "{{ clickhouse_config['docker_opts']['container_name'] }}"
+    state: restarted
+  notify: "clickhouse_healthcheck_insecure"
+  when: ( clickhouse_ssl['http_interface_ssl_enable'] is defined and clickhouse_ssl['http_interface_ssl_enable'] == false ) or ( clickhouse_ssl['http_interface_ssl_enable'] is not defined )

@@ -1,0 +1,24 @@
+---
+
+- name: CLICKHOUSE HEALTHCHECK | Wait for ClickHouse to Be Up and Running
+  uri:
+    url: "http://127.0.0.1:{{ clickhouse_https_port }}/ping"
+    validate_certs: false
+    status_code: 200
+  register: ch_result
+  until: ch_result.status == 200
+  retries: "{{ clickhouse_config['global']['status_check_retries'] }}"
+  delay: "{{ clickhouse_config['global']['status_check_delay'] }}"
+  when:
+    - clickhouse_ssl['http_interface_ssl_enable'] is defined
+    - clickhouse_ssl['http_interface_ssl_enable'] == true
+
+- name: CLICKHOUSE HEALTHCHECK | Wait for ClickHouse to Be Up and Running
+  uri:
+    url: "http://127.0.0.1:{{ clickhouse_http_port }}/ping"
+    status_code: 200
+  register: ch_result
+  until: ch_result.status == 200
+  retries: "{{ clickhouse_config['global']['status_check_retries'] }}"
+  delay: "{{ clickhouse_config['global']['status_check_delay'] }}"
+  when: ( clickhouse_ssl['http_interface_ssl_enable'] is defined and clickhouse_ssl['http_interface_ssl_enable'] == false ) or ( clickhouse_ssl['http_interface_ssl_enable'] is not defined )

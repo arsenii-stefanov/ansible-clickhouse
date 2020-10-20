@@ -1,0 +1,94 @@
+---
+
+- name: CLICKHOUSE SSL TASK | Ensure That the Diffie-Hellman Parameters File Exists
+  stat:
+    path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_dhparam_name }}"
+  register: dhparam_check
+  changed_when: false
+  when:
+    - clickhouse_node_dhparam_name is defined
+    - clickhouse_node_dhparam_name != ""
+
+- name: CLICKHOUSE SSL TASK | Register the 'dhparam_exists' Variable
+  set_fact:
+    dhparam_exists: "{{ dhparam_check.stat.exists|bool }}"
+  when:
+    - clickhouse_node_dhparam_name is defined
+    - clickhouse_node_dhparam_name != ""
+
+- name: CLICKHOUSE SSL TASK | Generate Diffie-Hellman Parameters
+  shell: "openssl dhparam -out {{ clickhouse_ssl_dir }}/{{ clickhouse_node_dhparam_name }} 2048"
+  async: 600
+  poll: 15
+  when:
+    - clickhouse_node_dhparam_name is defined
+    - clickhouse_node_dhparam_name != ""
+    - dhparam_exists is defined
+    - dhparam_exists == false
+
+- name: CLICKHOUSE SSL TASK | Ensure That the Diffie-Hellman Parameters File Has Correct Permissions
+  file:
+    path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_dhparam_name }}"
+    owner: "{{ clickhouse_owner_host['name'] }}"
+    group: "{{ clickhouse_group_host['name'] }}"
+    mode: "0644"
+
+- name: CLICKHOUSE SSL TASK | Copy the Root CA Certificate and Key
+  copy:
+    content: "{{ item.src | b64decode }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ clickhouse_owner_host['name'] }}"
+    group: "{{ clickhouse_group_host['name'] }}"
+    mode: "0600"
+  with_items:
+    - { src: "{{ clickhouse_root_ca_cert_base64 }}", dest: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_cert_name }}" }
+    - { src: "{{ clickhouse_root_ca_key_base64 }}", dest: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_key_name }}" }
+  no_log: true
+
+- name: CLICKHOUSE SSL TASK | Generate a Private Key
+  openssl_privatekey:
+    path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_key_name }}"
+    owner: "{{ clickhouse_owner_host['name'] }}"
+    group: "{{ clickhouse_group_host['name'] }}"
+    mode: "0600"
+    type: "RSA"
+    size: "4096"
+  notify:
+    - "restart_clickhouse_host_insecure"
+    - "restart_clickhouse_host_secure"
+
+- name: CLICKHOUSE SSL TASK | Generate a Certificate Request
+  openssl_csr:
+    path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_csr_name }}"
+    owner: "{{ clickhouse_owner_host['name'] }}"
+    group: "{{ clickhouse_group_host['name'] }}"
+    mode: "0600"
+    privatekey_path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_key_name }}"
+    common_name: "{{ clickhouse_openssl_csr['common_name'] }}"
+    country_name: "{{ clickhouse_openssl_csr['country_name'] }}"
+    state_or_province_name: "{{ clickhouse_openssl_csr['state_or_province_name'] }}"
+    locality_name: "{{ clickhouse_openssl_csr['locality_name'] }}"
+    organizational_unit_name: "{{ clickhouse_openssl_csr['organizational_unit_name'] }}"
+    organization_name: "{{ clickhouse_openssl_csr['organization_name'] }}"
+    email_address: "{{ clickhouse_openssl_csr['email_address'] }}"
+    subject_alt_name: "{{ clickhouse_openssl_csr['subject_alt_name'] }}"
+
+- name: CLICKHOUSE SSL TASK | Generate a Certificate and Sign It with the Root CA
+  openssl_certificate:
+    path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_cert_name }}"
+    owner: "{{ clickhouse_owner_host['name'] }}"
+    group: "{{ clickhouse_group_host['name'] }}"
+    mode: "0600"
+    privatekey_path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_key_name }}"
+    csr_path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_node_csr_name }}"
+    ownca_path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_cert_name }}"
+    ownca_privatekey_path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_key_name }}"
+    provider: ownca
+  notify:
+    - "restart_clickhouse_host_insecure"
+    - "restart_clickhouse_host_secure"
+
+- name: CLICKHOUSE SSL TASK | Delete the Root CA Key for Security Reasons
+  file:
+    path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_key_name }}"
+    state: absent

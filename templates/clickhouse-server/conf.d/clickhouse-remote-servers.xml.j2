@@ -1,0 +1,60 @@
+#jinja2:lstrip_blocks: True
+<?xml version="1.0"?>
+<!-- {{ ansible_managed }} -->
+<yandex>
+  <remote_servers>
+    <{{ clickhouse_cluster_name }}>
+{% for item in clickhouse_cluster['shards'] %}
+      <shard>
+{% if clickhouse_interserver_secret is defined and clickhouse_interserver_secret != "" %}
+        <!-- Optional. Inter-server per-cluster secret for Distributed queries
+             default: no secret (no authentication will be performed)
+
+             If set, then Distributed queries will be validated on shards, so at least:
+             - such cluster should exist on the shard,
+             - such cluster should have the same secret.
+
+             And also (and which is more important), the initial_user will
+             be used as current user for the query.
+        -->
+        <secret>{{ clickhouse_interserver_secret }}</secret>
+{% endif %}
+        <!-- Optional. Whether to write data to just one of the replicas. Default: false (write data to all replicas). -->
+        <internal_replication>{{ clickhouse_internal_replication }}</internal_replication>
+{% for replica in item['shard'] %}
+        <replica>
+          <!--
+          host - The address of the remote server. You can use either the domain or the IPv4 or IPv6 address. If you specify the domain, the server makes a DNS request
+          when it starts, and the result is stored as long as the server is running.
+          If the DNS request fails, the server doesn’t start.
+          If you change the DNS record, restart the server.
+          -->
+          <host>{{ replica['host'] }}</host>
+          <!-- Optional.
+          port – The TCP port for messenger activity (tcp_port in the config, usually set to 9000). Do not confuse it with http_port.
+          -->
+{% if clickhouse_ssl['distributed_query_ssl_enable'] is defined and clickhouse_ssl['distributed_query_ssl_enable'] == true %}
+          <port>{{ clickhouse_tcp_port_secure | default(9440) }}</port>
+          <!-- Optional. Priority of the replica for load_balancing. Default: 1 (less value has more priority). -->
+          <priority>{{ replica['priority'] | default(1) }}</priority>
+          <!-- Optional.
+          Use ssl for connection, usually you also should define port = 9440. Server should listen on <tcp_port_secure>9440</tcp_port_secure> and have correct certificates.
+          -->
+          <secure>1</secure>
+{% else %}
+          <port>{{ clickhouse_tcp_port | default(9000) }}</port>
+{% endif %}
+          <!-- Optional.
+          user – Name of the user for connecting to a remote server. Default value: default. This user must have access to connect to the specified server.
+          Access is configured in the users.xml file.
+          -->
+{% if clickhouse_interserver_user is defined and clickhouse_interserver_user !="" %}
+          <user>{{ clickhouse_interserver_user }}</user>
+{% endif %}
+        </replica>
+{% endfor %}
+      </shard>
+{% endfor %}
+    </{{ clickhouse_cluster_name }}>
+  </remote_servers>
+</yandex>

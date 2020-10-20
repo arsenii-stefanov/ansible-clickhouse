@@ -1,0 +1,30 @@
+---
+
+- name: CLIKHOUSE SYSTEM CONFIG TASK | Update sysctl.conf
+  sysctl:
+    sysctl_file: /etc/sysctl.conf
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: yes
+    state: "{{ item.state }}"
+    reload: yes
+  with_items: "{{ clickhouse_sysctl_config }}"
+  notify:
+    - "restart_clickhouse_host_secure"
+    - "restart_clickhouse_host_insecure"
+    - "restart_clickhouse_docker_secure"
+    - "restart_clickhouse_docker_insecure"
+
+###
+### This is no longer relevant since SystemD does not respect the /etc/security/limits.conf ; and Docker can set limits for a container even if their values exceed the values for Docker Daemon
+###
+
+# - name: CLIKHOUSE SYSTEM CONFIG TASK | Update limits.conf
+#   pam_limits:
+#     domain: "{{ item.domain }}"
+#     limit_type: "{{ item.limit_type }}"
+#     limit_item: "{{ item.limit_item }}"
+#     value: "{{ item.value }}"
+#   with_items: "{{ clickhouse_limits_config }}"
+#   notify:
+#     - "restart_clickhouse_host"

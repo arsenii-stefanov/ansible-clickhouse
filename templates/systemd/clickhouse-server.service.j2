@@ -1,0 +1,28 @@
+######################################
+###                                ###
+###       MANAGED BY ANSIBLE       ###
+###     (DO NOT EDIT MANUALLY)     ###
+###                                ###
+######################################
+
+[Unit]
+Description=ClickHouse Server (analytic DBMS for big data)
+
+[Service]
+Type=simple
+User={{ clickhouse_owner_host['name'] }}
+Group={{ clickhouse_group_host['name'] }}
+Restart=always
+RestartSec=30
+RuntimeDirectory={{ clickhouse_systemd_service_name }}
+ExecStart={{ clickhouse_binary_path }} --config={{ clickhouse_default_main_server_config_dir }}/{{ clickhouse_main_config_file }} --pid-file=/run/{{ clickhouse_systemd_service_name }}/{{ clickhouse_systemd_service_name }}.pid
+LimitCORE=infinity
+LimitNOFILE={{ clickhouse_limits_host['max_open_files'] }}
+{% if clickhouse_linux_capabilities_host is defined and clickhouse_linux_capabilities_host != "" %}
+CapabilityBoundingSet={% for item in clickhouse_linux_capabilities_host %} {{ item }} {% endfor %}
+{% else %}
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_IPC_LOCK CAP_SYS_NICE
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target
