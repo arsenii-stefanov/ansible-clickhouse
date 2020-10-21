@@ -1,6 +1,22 @@
 ---
 
-- name: CLICKHOUSE HEALTHCHECK | Wait for ClickHouse to Be Up and Running
+- name: CLICKHOUSE FORCE RESTART | Restart ClickHouse [Host]
+  systemd:
+    name: "{{ clickhouse_systemd_service_name }}"
+    state: "restarted"
+  when:
+    - clickhouse_installation_type == "host"
+    - clickhouse_installed_docker == false
+  tags: [always]
+
+- name: CLICKHOUSE FORCE RESTART | Restart ClickHouse [Docker]
+  command: "docker restart {{ clickhouse_config['docker_opts']['container_name'] }}"
+  when:
+    - clickhouse_installation_type == "docker"
+    - clickhouse_installed_host == false
+  tags: [always]
+
+- name: CLICKHOUSE FORCE RESTART | Clickhouse Healthcheck [Secure]
   uri:
     url: "{{ clickhouse_http_healthcheck_host }}:{{ clickhouse_https_port }}/ping"
     validate_certs: false
@@ -14,7 +30,7 @@
     - clickhouse_ssl['http_interface_ssl_enable'] == true
   tags: [always]
 
-- name: CLICKHOUSE HEALTHCHECK | Wait for ClickHouse to Be Up and Running
+- name: CLICKHOUSE FORCE RESTART | Clickhouse Healthcheck [Insecure]
   uri:
     url: "{{ clickhouse_http_healthcheck_host }}:{{ clickhouse_http_port }}/ping"
     status_code: 200

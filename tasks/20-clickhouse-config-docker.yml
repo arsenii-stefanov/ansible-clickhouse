@@ -16,7 +16,7 @@
     group: "{{ item.group }}"
     mode: "{{ item.mode }}"
   with_items: "{{ clickhouse_directories_container }}"
-  tags: [config_server]
+  tags: [configure_clickhouse]
 
 - name: CLICKHOUSE CONFIG TASK | Ensure That Config Files Exist [Docker]
   template:
@@ -26,4 +26,4 @@
     group: "{{ item.group }}"
     mode: "{{ item.mode }}"
   with_items: "{{ clickhouse_files_container }}"
-  tags: [config_server]
+  tags: [configure_clickhouse]

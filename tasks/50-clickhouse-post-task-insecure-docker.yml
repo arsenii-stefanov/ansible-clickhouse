@@ -1,24 +1,38 @@
 ---
 
 - name: CLICKHOUSE POST INSTALLATION TASK DOCKER | Get the List of Existing Databases
-  command: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c \"clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q 'SHOW DATABASES'\""
+  shell: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c \"clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -u {{ clickhouse_admin_user | default('default') }} --password {{ clickhouse_admin_password | default('NOPASSWORD') }} -q 'SHOW DATABASES'\""
   changed_when: False
   register: existing_databases
-  tags: [config_db]
+  no_log: "{{ clickhouse_cli_no_log | default(true) }}"
+  tags: [post_task]
 
 - name: CLICKHOUSE POST INSTALLATION TASK DOCKER | Show Existing Databases
   debug:
     var: existing_databases.stdout_lines
-  tags: [config_db]
+  tags: [post_task]
 
 - name: CLICKHOUSE POST INSTALLATION TASK DOCKER | Delete Databases
-  command: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c \"clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q 'DROP DATABASE IF EXISTS `{{ item.name }}`'\""
+  shell: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c \"clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -u {{ clickhouse_admin_user | default('default') }} --password {{ clickhouse_admin_password | default('NOPASSWORD') }} -q 'DROP DATABASE IF EXISTS `{{ item.name }}`'\""
   with_items: "{{ clickhouse_dbs }}"
+  no_log: "{{ clickhouse_cli_no_log | default(true) }}"
   when: item.state is defined and item.state == 'absent' and item.name in existing_databases.stdout_lines
-  tags: [config_db]
+  tags: [post_task]
 
 - name: CLICKHOUSE POST INSTALLATION TASK DOCKER | Create Databases
-  command: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c \"clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q 'CREATE DATABASE IF NOT EXISTS `{{ item.name }}`'\""
+  shell: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c \"clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -u {{ clickhouse_admin_user | default('default') }} --password {{ clickhouse_admin_password | default('NOPASSWORD') }} -q 'CREATE DATABASE IF NOT EXISTS `{{ item.name }}`'\""
   with_items: "{{ clickhouse_dbs }}"
+  no_log: "{{ clickhouse_cli_no_log | default(true) }}"
   when: (item.state is undefined or item.state == 'present') and item.name not in existing_databases.stdout_lines
-  tags: [config_db]
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK DOCKER | Include Custom SQL Scripts Task
+  include_tasks: "50-clickhouse-post-task-custom-sql.yml"
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK DOCKER | Execute Custom SQL Scripts
+  shell: "docker exec -i {{ clickhouse_config['docker_opts']['container_name'] }} sh -c \"clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -u {{ clickhouse_admin_user | default('default') }} --password {{ clickhouse_admin_password | default('NOPASSWORD') }} < {{ item }}\""
+  with_items: "{{ sql_scripts_list }}"
+  no_log: "{{ clickhouse_cli_no_log | default(true) }}"
+  when: clickhouse_custom_sql_scripts is defined and clickhouse_custom_sql_scripts != ""
+  tags: [post_task]
