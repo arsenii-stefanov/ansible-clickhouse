@@ -5,6 +5,12 @@ clickhouse_installation_type: "docker"        # Available options: host, docker
 clickhouse_cluster_name: "clickhouse_cluster"
 clickhouse_node_hostname: "{{ ansible_facts.fqdn }}"    # This should be a valid DNS (or IP, but DNS is preferrable) by which your nodes can reach each other
 
+### Although ClickHouse tracks changes in the config files and reloads users and clusters configurations on the fly, some changes it the configuration may
+### require a restart, such as changing/adding listening ports. Since it's a rare case and in order to avoid unwanted server restarts, this action can only be
+### triggered manually by setting the variable below to 'true'. DO NOT set it to 'true' in your VARS file, instead - pass it as an extra variable to
+### 'ansible-playbook' only when you need to. Example 'ansible-playbook playbook.yml -e "{'clickhouse_force_restart': true}" '
+clickhouse_force_restart: false
+
 ##########################
 ###     DISK MOUNTS    ###
 ##########################
@@ -54,15 +60,27 @@ clickhouse_group_docker:
   name: ""
   gid: "101"
 
-######################################
-###     CLICKHOUSE LISTEN PORTS    ###
-######################################
+####################################################
+###     CLICKHOUSE LISTEN ADDRESSES AND PORTS    ###
+####################################################
 clickhouse_http_port: 8123
 clickhouse_https_port: 8443
 clickhouse_tcp_port: 9000
 clickhouse_tcp_port_secure: 9440
 clickhouse_interserver_http_port: 9009
 clickhouse_interserver_https_port: 9449
+
+###################################
+###     CLICKHOUSE ENDPOINTS    ###
+###################################
+# this URL (IP or hostname) is used to check if ClickHouse is alive
+clickhouse_http_healthcheck_host: "http://127.0.0.1"
+# 'local' - execute post installation queries on one of the CH nodes; 'remote' (!!!NOT YET READY!!!) - execute post installation queries on the CI/CD server
+clickhouse_cli_connection_type: "local"
+# this IP/host address is used for performing post installation tasks via 'clickhouse-client'
+clickhouse_cli_host: "http://clickhouse-load-balancer.example.local"
+# Hide Ansible output for 'clickhouse-client' commands. You may disable it if you use a local user (only allowed to connect from 127.0.0.1) that has no password
+clickhouse_cli_no_log: true
 
 ##################################
 ###     CLICKHOUSE BINARIES    ###
@@ -319,7 +337,7 @@ clickhouse_interserver_user: "interserver-user"
 ################################
 ###     SSL CERTIFICATES     ###
 ################################
-clickhouse_ssl: false
+clickhouse_generate_self_signed_ssl: false
 
 clickhouse_root_ca_cert_name: "ca.crt"
 clickhouse_root_ca_key_name: "ca.key"
@@ -350,7 +368,7 @@ clickhouse_ssl:
   native_interface_ssl_only: false
 ### Same Native interface but for dictributed queries
   distributed_query_ssl_enable: false
-### Communication between replicas. Used for data exchange (apparently, if there is no Zookeeper)
+### Communication between replicas. Used for data exchange
   interserver_repl_ssl_enable: false    # if enabled, you must set the `clickhouse_interserver_https_host` too
 
 #################################################
@@ -433,14 +451,9 @@ clickhouse_users_custom: []
 #    comment: "Monitoring user with read only access"
 
 
-##################################
-###     CLICKHOUSE DATABASES   ###
-##################################
-clickhouse_dbs_default: []
-clickhouse_dbs_custom: []
-
-clickhouse_dbs: "{{ clickhouse_dbs_default + clickhouse_dbs_custom }}"
-
+###########################################
+###     CLICKHOUSE ADDITIONAL CONFIGS   ###
+###########################################
 clickhouse_logger:
   server-log:
     level: trace
@@ -462,3 +475,31 @@ clickhouse_zookeeper_config:
   ### Allow to execute distributed DDL queries (CREATE, DROP, ALTER, RENAME) on cluster. Works only if ZooKeeper is enabled. Comment it if such functionality isn't required  
   distributed_ddl:
     path: "/clickhouse/{{ clickhouse_cluster_name }}/task_queue/ddl"
+
+
+################################################
+###     CLICKHOUSE POST INSTALLATION TASKS   ###
+################################################
+
+### DATABASES
+clickhouse_dbs_default: []
+clickhouse_dbs_custom: []
+
+clickhouse_dbs: "{{ clickhouse_dbs_default + clickhouse_dbs_custom }}"
+
+### CUSTOM SQL SCRIPTS
+clickhouse_custom_sql_scripts:
+  path_local: "{{ playbook_dir }}/sql-scripts"
+  ### If 'path_remote' is set, then Ansible will copy your SQL scripts FROM the local machine TO one of the remote ClickHouse nodes for further execution of SQL queries one the 'ClickHouse localhost'
+  path_remote: "/tmp/custom_sql_scripts"
+  search_patterns: ["*.sql"]
+  search_excludes: []
+  use_regex: false    # fales - use Shell regex, true - use Python regex
+  search_recursively: true    # search for SQL scripts in the directory and its subdirectories
+  ### if 'git' is set, then Ansible will attempt to clone the git repo with your SQL scripts to the local directory
+  git:
+    repo: "git@github.com:myteam/my-repo.git"
+    dest: "{{ playbook_dir }}/sql-scripts"
+    version: "master"
+    accept_hostkey: true
+    key_file: "{{ git_ssh_key_path | default(omit) }}"

@@ -13,25 +13,25 @@
 ### SERVER CONFIGURATION
 - name: CLICKHOUSE MAIN TASK | Include System Configuration Task [Common]
   include_tasks: "10-system-config.yml"
-  tags: [always]
+  tags: [configure_host_machine]
 
 - name: CLICKHOUSE MAIN TASK | Include Disk Configuration Task [Common]
   include_tasks: "15-disk-config.yml"
   when:
     - clickhouse_disk_mounts is defined
     - clickhouse_disk_mounts != ""
-  tags: [always]
+  tags: [configure_host_machine]
 
 ### CLICKHOUSE SERVER CONFIGURATION
 - name: CLICKHOUSE MAIN TASK | Include Config Task [Host]
   include_tasks: "20-clickhouse-config-host.yml"
   when: clickhouse_installation_type == "host"
-  tags: [always]
+  tags: [configure_clickhouse]
 
-- name: CLICKHOUSE MAIN TASK | Include Config task [Docker]
+- name: CLICKHOUSE MAIN TASK | Include Config Task [Docker]
   include_tasks: "20-clickhouse-config-docker.yml"
   when: clickhouse_installation_type == "docker"
-  tags: [always]
+  tags: [configure_clickhouse]
 
 ### CLICKHOUSE SSL
 - name: CLICKHOUSE MAIN TASK | Include SSL Task [Host]
@@ -40,7 +40,7 @@
     - clickhouse_generate_self_signed_ssl is defined
     - clickhouse_generate_self_signed_ssl == true
     - clickhouse_installation_type == "host"
-  tags: [always]
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE MAIN TASK | Include SSL Task [Docker]
   include_tasks: "20-clickhouse-ssl-docker.yml"
@@ -48,7 +48,7 @@
     - clickhouse_generate_self_signed_ssl is defined
     - clickhouse_generate_self_signed_ssl == true
     - clickhouse_installation_type == "docker"
-  tags: [always]
+  tags: [issue_ssl]
 
 ### CLICKHOUSE INSTALLATION
 - name: CLICKHOUSE MAIN TASK | Include ClickHouse Installation Task [Host]
@@ -67,6 +67,13 @@
 - name: CLICKHOUSE MAIN TASK | Include Config task [Common]
   include_tasks: "20-clickhouse-validate-config.yml"
   when: clickhouse_installed_host == true or clickhouse_installed_docker == true
+  tags: [configure_clickhouse]
+
+- name: CLICKHOUSE MAIN TASK | Include ClickHouse Force Restart Task
+  include_tasks: "30-clickhouse-force-restart.yml"
+  when:
+    - clickhouse_force_restart is defined
+    - clickhouse_force_restart == true
   tags: [always]
 
 - name: CLICKHOUSE MAIN TASK | HealthCheck
@@ -76,34 +83,50 @@
 ### POST INSTALLATION TASKS
 - name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Secure, Host]
   include_tasks: "50-clickhouse-post-task-secure-host.yml"
+  run_once: true
   when:
     - clickhouse_installation_type == "host"
+    - clickhouse_cli_connection_type == "local"
     - clickhouse_ssl['native_interface_ssl_enable'] is defined
     - clickhouse_ssl['native_interface_ssl_enable'] == true
     - clickhouse_ssl['native_interface_ssl_only'] is defined
     - clickhouse_ssl['native_interface_ssl_only'] == true
-  tags: [always]
+  tags: [post_task]
 
 - name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Insecure, Host]
   include_tasks: "50-clickhouse-post-task-insecure-host.yml"
+  run_once: true
   when:
     - clickhouse_installation_type == "host"
+    - clickhouse_cli_connection_type == "local"
     - ( clickhouse_ssl['native_interface_ssl_only'] is defined and clickhouse_ssl['native_interface_ssl_only'] == false ) or ( clickhouse_ssl['native_interface_ssl_only'] is not defined )
-  tags: [always]
+  tags: [post_task]
 
 - name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Secure, Docker]
   include_tasks: "50-clickhouse-post-task-secure-docker.yml"
+  run_once: true
   when:
     - clickhouse_installation_type == "docker"
+    - clickhouse_cli_connection_type == "local"
     - clickhouse_ssl['native_interface_ssl_enable'] is defined
     - clickhouse_ssl['native_interface_ssl_enable'] == true
     - clickhouse_ssl['native_interface_ssl_only'] is defined
     - clickhouse_ssl['native_interface_ssl_only'] == true
-  tags: [always]
+  tags: [post_task]
 
 - name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Insecure, Docker]
   include_tasks: "50-clickhouse-post-task-insecure-docker.yml"
+  run_once: true
   when:
     - clickhouse_installation_type == "docker"
+    - clickhouse_cli_connection_type == "local"
     - ( clickhouse_ssl['native_interface_ssl_only'] is defined and clickhouse_ssl['native_interface_ssl_only'] == false ) or ( clickhouse_ssl['native_interface_ssl_only'] is not defined )
-  tags: [always]
+  tags: [post_task]
+
+### TO DO: Execute post installation tasks from your CI/CD server
+# - name: CLICKHOUSE MAIN TASK | Include ClickHouse Post Installation Task [Local]
+#   include_tasks: "50-clickhouse-post-task-local.yml"
+#   run_once: true
+#   when:
+#     - clickhouse_cli_connection_type == "remote"
+#   tags: [post_task]

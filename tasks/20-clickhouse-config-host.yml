@@ -13,7 +13,7 @@
     name: "{{ clickhouse_group_host['name'] }}"
     state: "present"
     gid: "{{ clickhouse_group_host['gid'] | default(omit) }}"
-  tags: [config_server]
+  tags: [configure_clickhouse]
 
 - name: CLICKHOUSE CONFIG TASK | Create a Unix User for ClickHouse
   user:
@@ -24,7 +24,7 @@
     group: "{{ clickhouse_owner_host['group'] }}"
     home: "{{ clickhouse_owner_host['home'] }}"
     shell: "{{ clickhouse_owner_host['shell'] }}"
-  tags: [config_server]
+  tags: [configure_clickhouse]
 
 - name: CLICKHOUSE CONFIG TASK | Ensure That Directories Exist [Host]
   file:
@@ -34,7 +34,7 @@
     group: "{{ item.group }}"
     mode: "{{ item.mode }}"
   with_items: "{{ clickhouse_directories_host }}"
-  tags: [config_server]
+  tags: [configure_clickhouse]
 
 - name: CLICKHOUSE CONFIG TASK | Ensure That Config Files Exist [Host]
   template:
@@ -44,7 +44,7 @@
     group: "{{ item.group }}"
     mode: "{{ item.mode }}"
   with_items: "{{ clickhouse_files_host }}"
-  tags: [config_server]
+  tags: [configure_clickhouse]
 
 - name: CLICKHOUSE CONFIG TASK | Create Symlinks [Host]
   file:
@@ -52,3 +52,4 @@
     dest: "{{ item.dest }}"
     state: link
   with_items: "{{ clickhouse_symlinks }}"
+  tags: [configure_clickhouse]

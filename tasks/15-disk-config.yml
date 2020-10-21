@@ -8,6 +8,7 @@
     force: no
   with_items: "{{ clickhouse_disk_mounts }}"
   when: clickhouse_disk_mounts is defined and clickhouse_disk_mounts != ""
+  tags: [configure_host_machine]
 
 - name: CLICKHOUSE DISK CONFIG TASK | Ensure That the Mount Directories Exist
   file:
@@ -17,6 +18,7 @@
     group: "{{ item.group | default('group') }}"
     mode: "{{ item.mode | default(0755) }}"
   with_items: "{{ clickhouse_disk_mounts }}"
+  tags: [configure_host_machine]
 
 - name: CLICKHOUSE DISK CONFIG TASK | Ensure That the Disk Is Mounted
   mount:
@@ -32,3 +34,4 @@
     - "restart_clickhouse_docker_secure"
     - "restart_clickhouse_docker_insecure"
   when: clickhouse_disk_mounts is defined and clickhouse_disk_mounts != ""
+  tags: [configure_host_machine]

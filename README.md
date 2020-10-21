@@ -79,45 +79,6 @@ $ ansible-galaxy -vvvv install -f -r requirements/clickhouse-cluster-requirement
 ```
 ---
 
-- name: Install ClickHouse
-  hosts: clickhouse
-  connection: ssh
-  become: true
-  become_user: root
-  become_method: sudo
-  any_errors_fatal: true
-  gather_facts: true
-
-  pre_tasks:
-    - name: Include Variables
-      include_vars: "{{ item }}"
-      with_items:
-        - "clickhouse-{{ env_name }}.yml"
-        - "clickhouse-{{ env_name }}-secrets.yml"
-      when:
-        - clickhouse_failover is defined
-        - clickhouse_failover == false
-
-    - name: Include Variables
-      include_vars: "{{ item }}"
-      with_items:
-        - "clickhouse-{{ env_name }}-failover.yml"
-        - "clickhouse-{{ env_name }}-failover-secrets.yml"
-      when:
-        - clickhouse_failover is defined
-        - clickhouse_failover == true
-
-  roles:
-    - { role: "ansible-basic-server-setup", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
-    - { role: "ansible-python", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
-### In case you would like to install ClickHouse in Docker. This approach has several drawbacks. For example, by default you are not able to see the real IP
-### inside the Docker container (you will see the Docker network adapter's gateway IP instead). And ClickHouse has a nice feature that allows you to limit direct access to
-### its nodes by IP by user (in some cases it may be more convenient than a regular firewall). Although there is a workaround - make the Docker container use the host's
-### network, running ClickHouse is Docker makes more sens if you use an orchestrator, such as Kubernetes. Anyway, if you wish to try, make sure you uncommen 
-### the 'ansible-docker' role below
-#    - { role: "ansible-docker", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
-    - ansible-clickhouse
-
 - name: Install Zookeeper
   hosts: zookeeper
   connection: ssh
@@ -136,6 +97,7 @@ $ ansible-galaxy -vvvv install -f -r requirements/clickhouse-cluster-requirement
       when:
         - zookeeper_failover is defined
         - zookeeper_failover == false
+      tags: [always]
 
     - name: Include Variables
       include_vars: "{{ item }}"
@@ -145,12 +107,54 @@ $ ansible-galaxy -vvvv install -f -r requirements/clickhouse-cluster-requirement
       when:
         - zookeeper_failover is defined
         - zookeeper_failover == true
+      tags: [always]
 
   roles:
     - { role: "ansible-basic-server-setup", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
     - { role: "ansible-python", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
     - { role: "ansible-docker", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
     - ansible-zookeeper
+
+- name: Install ClickHouse
+  hosts: clickhouse
+  connection: ssh
+  become: true
+  become_user: root
+  become_method: sudo
+  any_errors_fatal: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Include Variables
+      include_vars: "{{ item }}"
+      with_items:
+        - "clickhouse-{{ env_name }}.yml"
+        - "clickhouse-{{ env_name }}-secrets.yml"
+      when:
+        - clickhouse_failover is defined
+        - clickhouse_failover == false
+      tags: [always]
+
+    - name: Include Variables
+      include_vars: "{{ item }}"
+      with_items:
+        - "clickhouse-{{ env_name }}-failover.yml"
+        - "clickhouse-{{ env_name }}-failover-secrets.yml"
+      when:
+        - clickhouse_failover is defined
+        - clickhouse_failover == true
+      tags: [always]
+
+  roles:
+    - { role: "ansible-basic-server-setup", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
+    - { role: "ansible-python", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
+### In case you would like to install ClickHouse in Docker. This approach has several drawbacks. For example, by default you are not able to see the real IP
+### inside the Docker container (you will see the Docker network adapter's gateway IP instead). And ClickHouse has a nice feature that allows you to limit direct access to
+### its nodes by IP by user (in some cases it may be more convenient than a regular firewall). Although there is a workaround - make the Docker container use the host's
+### network, running ClickHouse is Docker makes more sens if you use an orchestrator, such as Kubernetes. Anyway, if you wish to try, make sure you uncommen 
+### the 'ansible-docker' role below
+#    - { role: "ansible-docker", when: skip_basic_server_setup is not defined or ( skip_basic_server_setup is defined and skip_basic_server_setup == false ) }
+    - ansible-clickhouse
 ```
 
 * `FILE: {{ playbook_dir }}/vars/clickhouse-staging-secrets.yml`
@@ -335,6 +339,29 @@ clickhouse_openssl_csr:
     - "IP:{{ ansible_host }}"
 
 
+###########################################
+###     CLICKHOUSE ADDITIONAL CONFIGS   ###
+###########################################
+clickhouse_logger:
+  server-log:
+    level: trace
+    log: "{{ clickhouse_default_log_dir }}/clickhouse-server.log"
+    errorlog: "{{ clickhouse_default_log_dir }}/clickhouse-server.err.log"
+    size: 1000M
+    count: 10
+  query-log:
+    database: "system"
+    table: "query_log"
+    partition_by: "toYYYYMM(event_date)"
+    flush_interval_milliseconds: 7500
+
+clickhouse_zookeeper_config:
+  resharding:
+    task_queue_path: "/clickhouse/task_queue"
+  ### Allow to execute distributed DDL queries (CREATE, DROP, ALTER, RENAME) on cluster. Works only if ZooKeeper is enabled. Comment it if such functionality isn't required  
+  distributed_ddl:
+    path: "/clickhouse/task_queue/ddl"
+
 ########################################################################
 ###     CLICKHOUSE REMOTE SERVERS (clickhouse-remote-servers.xml)    ###
 ########################################################################
@@ -349,6 +376,8 @@ clickhouse_networks_default:
 
 ### If you want to restrict direct access to ClickHouse nodes and only allow access via your Load Balancer, then whitelist your Load Balancer IP/subnet
 clickhouse_networks_custom:
+  local:
+    - "127.0.0.1"
   gcp-internal:
     - "10.128.0.0/9"
   docker:
@@ -433,6 +462,31 @@ clickhouse_profiles_custom:
     prefer_localhost_replica: "0" # execute query on all available replicas
     max_parallel_replicas: "2" # works only for the tables created with SAMPLE clause. CH splits the query by sample section and executes part of the query on N (max_parallel_replicas) replicas.
 
+################################################
+###     CLICKHOUSE POST INSTALLATION TASKS   ###
+################################################
+
+### DATABASES
+clickhouse_dbs_default: []
+clickhouse_dbs_custom: []
+
+clickhouse_dbs: "{{ clickhouse_dbs_default + clickhouse_dbs_custom }}"
+
+### CUSTOM SQL SCRIPTS
+clickhouse_custom_sql_scripts:
+  path_local: "{{ playbook_dir }}/sql-scripts"
+  ### If 'path_remote' is set, then Ansible will copy your SQL scripts FROM the local machine TO one of the remote ClickHouse nodes for further execution of
+  ### SQL queries one the 'ClickHouse localhost'
+  path_remote: "/tmp/custom_sql_scripts"
+  search_patterns: "*.sql"    # comma separated
+  search_recursively: true    # search for SQL scripts in the directory and its subdirectories
+  ### if 'git' is set, then Ansible will attempt to clone the git repo with your SQL scripts to the local directory
+  git:
+    repo: "git@github.com:myteam/my-repo.git"
+    dest: "{{ playbook_dir }}/sql-scripts"
+    version: "master"
+    accept_hostkey: true
+    key_file: "{{ git_ssh_key_path | default(omit) }}"
 ```
 
 

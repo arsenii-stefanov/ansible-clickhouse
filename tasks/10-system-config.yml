@@ -14,6 +14,7 @@
     - "restart_clickhouse_host_insecure"
     - "restart_clickhouse_docker_secure"
     - "restart_clickhouse_docker_insecure"
+  tags: [configure_host_machine]
 
 ###
 ### This is no longer relevant since SystemD does not respect the /etc/security/limits.conf ; and Docker can set limits for a container even if their values exceed the values for Docker Daemon

@@ -1,0 +1,93 @@
+---
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Get Custom SQL Scripts [Local]
+  git:
+    repo: "{{ clickhouse_custom_sql_scripts['git']['repo'] }}"
+    dest: "{{ clickhouse_custom_sql_scripts['git']['dest'] }}"
+    version: "{{ clickhouse_custom_sql_scripts['git']['version'] }}"
+    accept_hostkey: "{{ clickhouse_custom_sql_scripts['git']['accept_hostkey'] }}"
+    key_file: "{{ clickhouse_custom_sql_scripts['git']['key_file'] }}"
+  delegate_to: "localhost"
+  become: false
+  when:
+    - clickhouse_custom_sql_scripts['git']['repo'] is defined
+    - clickhouse_custom_sql_scripts['git']['repo'] != ""
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Ensure That the Directory for Custom SQL Scripts Exists on the Remote ClickHouse Host
+  file:
+    path: "{{ clickhouse_custom_sql_scripts['path_remote'] }}"
+    state: "directory"
+  when:
+    - clickhouse_custom_sql_scripts['path_remote'] is defined
+    - clickhouse_custom_sql_scripts['path_remote'] != ""
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Find All SQL Scripts [Local]
+  find:
+    paths: "{{ clickhouse_custom_sql_scripts['path_local'] }}"
+    patterns: "{{ clickhouse_custom_sql_scripts['search_patterns'] }}"
+    excludes: "{{ clickhouse_custom_sql_scripts['search_excludes'] }}"
+    use_regex: "{{ clickhouse_custom_sql_scripts['use_regex'] }}"
+    recurse: "{{ clickhouse_custom_sql_scripts['search_recursively'] }}"
+  delegate_to: "localhost"
+  become: false
+  register: sql_scripts_list_local_output
+  when:
+    - clickhouse_custom_sql_scripts['path_remote'] is defined
+    - clickhouse_custom_sql_scripts['path_remote'] != ""
+  tags: [post_task]
+
+- set_fact:
+    sql_scripts_list: "{{ sql_scripts_list_local_output.files | map(attribute='path') | list | sort }}"
+  delegate_to: "localhost"
+  become: false
+  when: sql_scripts_list_local_output is defined
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Show the List of Custom SQL Scripts [Local]
+  debug:
+    msg: "{{ sql_scripts_list }}"
+  delegate_to: "localhost"
+  become: false
+  when:
+    - clickhouse_custom_sql_scripts['path_local'] is defined
+    - clickhouse_custom_sql_scripts['path_local'] != ""
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Transfer the SQL Scripts to the Remote ClickHouse Host
+  copy:
+    src: "{{ item }}"
+    dest: "{{ clickhouse_custom_sql_scripts['path_remote'] }}/"
+    mode: "0644"
+  with_items: "{{ sql_scripts_list }}"
+  when:
+    - clickhouse_custom_sql_scripts['path_remote'] is defined
+    - clickhouse_custom_sql_scripts['path_remote'] != ""
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Find All SQL Scripts [Remote]
+  find:
+    paths: "{{ clickhouse_custom_sql_scripts['path_remote'] }}"
+    patterns: "{{ clickhouse_custom_sql_scripts['search_patterns'] }}"
+    excludes: "{{ clickhouse_custom_sql_scripts['search_excludes'] }}"
+    use_regex: "{{ clickhouse_custom_sql_scripts['use_regex'] }}"
+    recurse: "{{ clickhouse_custom_sql_scripts['search_recursively'] }}"
+  register: sql_scripts_list_remote_output
+  when:
+    - clickhouse_custom_sql_scripts['path_remote'] is defined
+    - clickhouse_custom_sql_scripts['path_remote'] != ""
+  tags: [post_task]
+
+- set_fact:
+    sql_scripts_list: "{{ sql_scripts_list_remote_output.files | map(attribute='path') | list | sort }}"
+  when: sql_scripts_list_remote_output is defined
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Show the List of Custom SQL Scripts
+  debug:
+    msg: "{{ sql_scripts_list }}"
+  when:
+    - clickhouse_custom_sql_scripts['path_remote'] is defined
+    - clickhouse_custom_sql_scripts['path_remote'] != ""
+  tags: [post_task]

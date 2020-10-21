@@ -8,6 +8,7 @@
   when:
     - clickhouse_node_dhparam_name is defined
     - clickhouse_node_dhparam_name != ""
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Register the 'dhparam_exists' Variable
   set_fact:
@@ -15,6 +16,7 @@
   when:
     - clickhouse_node_dhparam_name is defined
     - clickhouse_node_dhparam_name != ""
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Generate Diffie-Hellman Parameters
   shell: "openssl dhparam -out {{ clickhouse_ssl_dir }}/{{ clickhouse_node_dhparam_name }} 2048"
@@ -25,6 +27,7 @@
     - clickhouse_node_dhparam_name != ""
     - dhparam_exists is defined
     - dhparam_exists == false
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Ensure That the Diffie-Hellman Parameters File Has Correct Permissions
   file:
@@ -32,6 +35,7 @@
     owner: "{{ clickhouse_owner_docker['uid'] }}"
     group: "{{ clickhouse_group_docker['gid'] }}"
     mode: "0644"
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Copy the Root CA Certificate and Key
   copy:
@@ -44,6 +48,7 @@
     - { src: "{{ clickhouse_root_ca_cert_base64 }}", dest: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_cert_name }}" }
     - { src: "{{ clickhouse_root_ca_key_base64 }}", dest: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_key_name }}" }
   no_log: true
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Generate a Private Key
   openssl_privatekey:
@@ -56,6 +61,7 @@
   notify:
     - "restart_clickhouse_docker_secure"
     - "restart_clickhouse_docker_insecure"
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Generate a Certificate Request
   openssl_csr:
@@ -72,6 +78,7 @@
     organization_name: "{{ clickhouse_openssl_csr['organization_name'] }}"
     email_address: "{{ clickhouse_openssl_csr['email_address'] }}"
     subject_alt_name: "{{ clickhouse_openssl_csr['subject_alt_name'] }}"
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Generate a Certificate and Sign It with the Root CA
   openssl_certificate:
@@ -87,8 +94,10 @@
   notify:
     - "restart_clickhouse_docker_secure"
     - "restart_clickhouse_docker_insecure"
+  tags: [issue_ssl]
 
 - name: CLICKHOUSE SSL TASK | Delete the Root CA Key for Security Reasons
   file:
     path: "{{ clickhouse_ssl_dir }}/{{ clickhouse_root_ca_key_name }}"
     state: absent
+  tags: [issue_ssl]
