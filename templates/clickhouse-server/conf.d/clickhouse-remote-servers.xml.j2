@@ -48,7 +48,7 @@
           user – Name of the user for connecting to a remote server. Default value: default. This user must have access to connect to the specified server.
           Access is configured in the users.xml file.
           -->
-{% if clickhouse_interserver_user is defined and clickhouse_interserver_user !="" %}
+{% if clickhouse_interserver_distributed_auth_enabled is defined and clickhouse_interserver_distributed_auth_enabled == true %}
           <user>{{ clickhouse_interserver_user }}</user>
 {% endif %}
         </replica>

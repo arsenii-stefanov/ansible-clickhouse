@@ -3,11 +3,11 @@
 <!-- {{ ansible_managed }} -->
 <yandex>
     <logger>
-        <level>{{ clickhouse_logger['server-log']['level'] }}</level>
-        <log>{{ clickhouse_logger['server-log']['log'] }}</log>
-        <errorlog>{{ clickhouse_logger['server-log']['errorlog'] }}</errorlog>
-        <size>{{ clickhouse_logger['server-log']['size'] }}</size>
-        <count>{{ clickhouse_logger['server-log']['count'] }}</count>
+        <level>{{ clickhouse_logger['server_log']['level'] }}</level>
+        <log>{{ clickhouse_logger['server_log']['log'] }}</log>
+        <errorlog>{{ clickhouse_logger['server_log']['errorlog'] }}</errorlog>
+        <size>{{ clickhouse_logger['server_log']['size'] }}</size>
+        <count>{{ clickhouse_logger['server_log']['count'] }}</count>
     </logger>
 
 {% if clickhouse_ssl['http_interface_ssl_enable'] is defined and clickhouse_ssl['http_interface_ssl_enable'] == true %}
@@ -92,6 +92,13 @@
     <interserver_http_port>{{ clickhouse_interserver_http_port | default(9009) }}</interserver_http_port>
 {% endif %}
 
+{% if interserver_http_auth_enabled is defined and interserver_http_auth_enabled == true %}
+<interserver_http_credentials>
+    <user>{{ interserver_http_auth_user }}</user>
+    <password>{{ interserver_http_auth_password }}</password>
+</interserver_http_credentials>
+{% endif %}
+
 
     <!-- Listen specified host. use :: (wildcard IPv6 address), if you want to accept connections both with IPv4 and IPv6 from everywhere. -->
     <!-- <listen_host>::</listen_host> -->
@@ -99,11 +106,11 @@
     <listen_host>{{ host }}</listen_host>
 {% endfor %}
 
-    <max_connections>{{ clickhouse_server_config.max_connections }}</max_connections>
-    <keep_alive_timeout>{{ clickhouse_server_config.keep_alive_timeout }}</keep_alive_timeout>
+    <max_connections>{{ clickhouse_server_config['max_connections'] }}</max_connections>
+    <keep_alive_timeout>{{ clickhouse_server_config['keep_alive_timeout'] }}</keep_alive_timeout>
 
     <!-- Maximum number of concurrent queries. -->
-    <max_concurrent_queries>{{ clickhouse_server_config.max_concurrent_queries }}</max_concurrent_queries>
+    <max_concurrent_queries>{{ clickhouse_server_config['max_concurrent_queries'] }}</max_concurrent_queries>
 
     <!-- Set limit on number of open files (default: maximum). This setting makes sense on Mac OS X because getrlimit() fails to retrieve
          correct maximum value. -->
@@ -114,13 +121,13 @@
          Cache is used when 'use_uncompressed_cache' user setting turned on (off by default).
          Uncompressed cache is advantageous only for very short queries and in rare cases.
       -->
-    <uncompressed_cache_size>{{ clickhouse_server_config.uncompressed_cache_size }}</uncompressed_cache_size>
+    <uncompressed_cache_size>{{ clickhouse_server_config['uncompressed_cache_size'] }}</uncompressed_cache_size>
 
     <!-- Approximate size of mark cache, used in tables of MergeTree family.
          In bytes. Cache is single for server. Memory is allocated only on demand.
          You should not lower this value.
       -->
-    <mark_cache_size>{{ clickhouse_server_config.mark_cache_size }}</mark_cache_size>
+    <mark_cache_size>{{ clickhouse_server_config['mark_cache_size'] }}</mark_cache_size>
 
 
     <!-- Path to data directory, with trailing slash. -->
@@ -185,48 +192,36 @@
 
 
     <!-- Reloading interval for embedded dictionaries, in seconds. Default: 3600. -->
-    <builtin_dictionaries_reload_interval>{{ clickhouse_server_config.builtin_dictionaries_reload_interval }}</builtin_dictionaries_reload_interval>
+    <builtin_dictionaries_reload_interval>{{ clickhouse_server_config['builtin_dictionaries_reload_interval'] }}</builtin_dictionaries_reload_interval>
 
 
     <!-- Maximum session timeout, in seconds. Default: 3600. -->
-    <max_session_timeout>{{ clickhouse_server_config.max_session_timeout }}</max_session_timeout>
+    <max_session_timeout>{{ clickhouse_server_config['max_session_timeout'] }}</max_session_timeout>
 
     <!-- Default session timeout, in seconds. Default: 60. -->
-    <default_session_timeout>{{ clickhouse_server_config.default_session_timeout }}</default_session_timeout>
+    <default_session_timeout>{{ clickhouse_server_config['default_session_timeout'] }}</default_session_timeout>
 
-    <!-- Sending data to Graphite for monitoring. Several sections can be defined. -->
-    <!--
-        interval - send every X second
-        root_path - prefix for keys
-        metrics - send data from table system.metrics
-        events - send data from table system.events
-        asynchronous_metrics - send data from table system.asynchronous_metrics
-    -->
-    <!--
+{% if clickhouse_monitoring['type'] is defined and clickhouse_monitoring['type'] == "prometheus" %}
+    <prometheus>
+        <endpoint>{{ clickhouse_monitoring['config_opts']['endpoint'] | default('/metrics') }}</endpoint>
+        <port>{{ clickhouse_monitoring['config_opts']['port'] | default(8001) }}</port>
+        <metrics>{{ clickhouse_monitoring['config_opts']['metrics'] | default(true) }}</metrics>
+        <events>{{ clickhouse_monitoring['config_opts']['events'] | default(true) }}</events>
+        <asynchronous_metrics>{{ clickhouse_monitoring['config_opts']['asynchronous_metrics'] | default(true) }}</asynchronous_metrics>
+    </prometheus>
+{% elif clickhouse_monitoring['type'] is defined and clickhouse_monitoring['type'] == "graphite" %}
     <graphite>
-        <host>localhost</host>
-        <port>42000</port>
-        <timeout>0.1</timeout>
-        <interval>60</interval>
-        <root_path>one_min</root_path>
-
-        <metrics>true</metrics>
-        <events>true</events>
-        <asynchronous_metrics>true</asynchronous_metrics>
+        <host>{{ clickhouse_monitoring['config_opts']['host'] | default('localhost') }}</host>
+        <port>{{ clickhouse_monitoring['config_opts']['port'] | default(42000) }}</port>
+        <timeout>{{ clickhouse_monitoring['config_opts']['timeout'] | default('0.1') }}</timeout>
+        <interval>{{ clickhouse_monitoring['config_opts']['interval'] | default(60) }}</interval>
+        <root_path>{{ clickhouse_monitoring['config_opts']['root_path'] | default('one_min') }}</root_path>
+        <metrics>{{ clickhouse_monitoring['config_opts']['metrics'] | default('true') }}</metrics>
+        <events>{{ clickhouse_monitoring['config_opts']['events'] | default('true') }}</events>
+        <events_cumulative>{{ clickhouse_monitoring['config_opts']['events_cumulative'] | default('false') }}</events_cumulative>
+        <asynchronous_metrics>{{ clickhouse_monitoring['config_opts']['asynchronous_metrics'] | default('true') }}</asynchronous_metrics>
     </graphite>
-    <graphite>
-        <host>localhost</host>
-        <port>42000</port>
-        <timeout>0.1</timeout>
-        <interval>1</interval>
-        <root_path>one_sec</root_path>
-
-        <metrics>true</metrics>
-        <events>true</events>
-        <asynchronous_metrics>false</asynchronous_metrics>
-    </graphite>
-    -->
-
+{% endif %}
 
     <!-- Query log. Used only for queries with setting log_queries = 1. -->
     <query_log>
@@ -234,23 +229,21 @@
              When query log structure is changed after system update,
               then old table will be renamed and new table will be created automatically.
         -->
-        <database>{{ clickhouse_logger['query-log']['database'] }}</database>
-        <table>{{ clickhouse_logger['query-log']['table'] }}</table>
-        <partition_by>{{ clickhouse_logger['query-log']['partition_by'] }}</partition_by>
+        <database>{{ clickhouse_logger['query_log']['database'] }}</database>
+        <table>{{ clickhouse_logger['query_log']['table'] }}</table>
+        <partition_by>{{ clickhouse_logger['query_log']['partition_by'] }}</partition_by>
         <!-- Interval of flushing data. -->
-        <flush_interval_milliseconds>{{ clickhouse_logger['query-log']['flush_interval_milliseconds'] }}</flush_interval_milliseconds>
+        <flush_interval_milliseconds>{{ clickhouse_logger['query_log']['flush_interval_milliseconds'] }}</flush_interval_milliseconds>
     </query_log>
 
 
-    <!-- Uncomment if use part_log
+{% if clickhouse_logger['part_log'] is defined and clickhouse_logger['part_log'] != "" %}
     <part_log>
-        <database>system</database>
-        <table>part_log</table>
-
-        <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        <database>{{ clickhouse_logger['part_log']['database'] }}</database>
+        <table>{{ clickhouse_logger['part_log']['table'] }}</table>
+        <flush_interval_milliseconds>{{ clickhouse_logger['part_log']['flush_interval_milliseconds'] }}</flush_interval_milliseconds>
     </part_log>
-    -->
-
+{% endif %}
 
     <!-- Parameters for embedded dictionaries, used in Yandex.Metrica.
          See https://clickhouse.yandex/reference_en.html#Internal%20dictionaries
@@ -271,7 +264,7 @@
     <!-- Uncomment if you want data to be compressed 30-100% better.
          Don't do that if you just started using ClickHouse.
       -->
-    <compression incl="clickhouse_compression">
+    <compression incl="clickhouse-compression">
     <!--
         <!- - Set of variants. Checked in order. Last matching case wins. If nothing matches, lz4 will be used. - ->
         <case>
@@ -312,7 +305,7 @@
          By default max_table_size_to_drop is 50GB, max_table_size_to_drop=0 allows to DROP any tables.
          Uncomment to disable protection.
     -->
-    <!-- <max_table_size_to_drop>0</max_table_size_to_drop> -->
+    <max_table_size_to_drop>{{ clickhouse_server_config['max_table_size_to_drop'] | default('50000000000') }}</max_table_size_to_drop>
 
     <!-- Example of parameters for GraphiteMergeTree table engine -->
     <graphite_rollup_example>

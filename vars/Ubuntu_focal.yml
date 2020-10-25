@@ -131,6 +131,11 @@ clickhouse_files_host:
     owner: "{{ clickhouse_owner_host['name'] }}"
     group: "{{ clickhouse_group_host['name'] }}"
     mode: "0440"
+  - src: "{{ clickhouse_server_templates_dir }}/conf.d/{{ clickhouse_compression_config_file }}.j2"
+    dest: "{{ clickhouse_include_server_config_dir }}/{{ clickhouse_compression_config_file }}"
+    owner: "{{ clickhouse_owner_host['name'] }}"
+    group: "{{ clickhouse_group_host['name'] }}"
+    mode: "0440"
 ### CLIENT CONFIG DIR
   - src: "{{ clickhouse_client_templates_dir }}/{{ clickhouse_main_client_config_file }}.j2"
     dest: "{{ clickhouse_main_client_config_dir }}/{{ clickhouse_main_client_config_file }}"
