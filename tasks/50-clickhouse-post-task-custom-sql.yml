@@ -55,7 +55,7 @@
     - clickhouse_custom_sql_scripts['path_local'] != ""
   tags: [post_task]
 
-- name: CLICKHOUSE POST INSTALLATION TASK | Transfer the SQL Scripts to the Remote ClickHouse Host
+- name: CLICKHOUSE POST INSTALLATION TASK | Transfer the SQL Scripts to the Remote ClickHouse Host [Simple Copy]
   copy:
     src: "{{ item }}"
     dest: "{{ clickhouse_custom_sql_scripts['path_remote'] }}/"
@@ -64,6 +64,19 @@
   when:
     - clickhouse_custom_sql_scripts['path_remote'] is defined
     - clickhouse_custom_sql_scripts['path_remote'] != ""
+    - clickhouse_custom_sql_scripts['sql_scripts_are_jinja'] == false
+  tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Transfer the SQL Scripts to the Remote ClickHouse Host [Copy As Jinja Template]
+  template:
+    src: "{{ item }}"
+    dest: "{{ clickhouse_custom_sql_scripts['path_remote'] }}/"
+    mode: "0644"
+  with_items: "{{ sql_scripts_list }}"
+  when:
+    - clickhouse_custom_sql_scripts['path_remote'] is defined
+    - clickhouse_custom_sql_scripts['path_remote'] != ""
+    - clickhouse_custom_sql_scripts['sql_scripts_are_jinja'] == true
   tags: [post_task]
 
 - name: CLICKHOUSE POST INSTALLATION TASK | Find All SQL Scripts [Remote]

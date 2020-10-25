@@ -36,3 +36,7 @@
   no_log: "{{ clickhouse_cli_no_log | default(true) }}"
   when: clickhouse_custom_sql_scripts is defined and clickhouse_custom_sql_scripts != ""
   tags: [post_task]
+
+- name: CLICKHOUSE POST INSTALLATION TASK HOST | Include Custom SQL Scripts Cleanup Task
+  include_tasks: "50-clickhouse-post-task-custom-sql-cleanup.yml"
+  tags: [post_task]
