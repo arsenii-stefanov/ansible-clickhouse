@@ -1,5 +1,6 @@
 ---
 
+### Installation on host is preferrable. Installation in Docker has not been properly tested so use at your own risk
 clickhouse_installation_type: "docker"        # Available options: host, docker
 
 clickhouse_cluster_name: "clickhouse_cluster"
@@ -204,6 +205,7 @@ clickhouse_dicts_config_file: "auto-dictionary.xml"
 clickhouse_macros_config_file: "macros.xml"
 clickhouse_users_config_file: "users.xml"
 clickhouse_zookeeper_config_file: "zookeeper-servers.xml"
+clickhouse_compression_config_file: "clickhouse-compression.xml"
 clickhouse_main_client_config_file: "config.xml"
 
 clickhouse_files_container:
@@ -239,6 +241,11 @@ clickhouse_files_container:
     owner: "{{ clickhouse_owner_docker['uid'] }}"
     group: "{{ clickhouse_group_docker['gid'] }}"
     mode: "0440"
+  - src: "{{ clickhouse_server_templates_dir }}/conf.d/{{ clickhouse_compression_config_file }}.j2"
+    dest: "{{ clickhouse_include_server_config_dir }}/{{ clickhouse_compression_config_file }}"
+    owner: "{{ clickhouse_owner_docker['uid'] }}"
+    group: "{{ clickhouse_group_docker['gid'] }}"
+    mode: "0440"
 ### CLIENT CONFIG DIR
   - src: "{{ clickhouse_client_templates_dir }}/{{ clickhouse_main_client_config_file }}.j2"
     dest: "{{ clickhouse_main_client_config_dir }}/{{ clickhouse_main_client_config_file }}"
@@ -247,6 +254,7 @@ clickhouse_files_container:
     mode: "0440"
 
 ### CONFIG FILES VALIDATION
+### Syntax: clickhouse-extract-from-config --config-file </path/to/config/file> --key=<config_file_key>
 ### Example: clickhouse-extract-from-config --config-file /etc/clickhouse-server/config.xml --key=path
 ### If the config file has a syntax error, you will get an error when you try to export any of the its keys
 clickhouse_validate_config_files:
@@ -260,6 +268,8 @@ clickhouse_validate_config_files:
   config_key: "zookeeper"
 - config_file: "{{ clickhouse_default_include_server_config_dir }}/{{ clickhouse_macros_config_file }}"
   config_key: "macros"
+- config_file: "{{ clickhouse_default_include_server_config_dir }}/{{ clickhouse_compression_config_file }}"
+  config_key: "compression"
 - config_file: "{{ clickhouse_default_main_server_config_dir }}/{{ clickhouse_dicts_config_file }}"
   config_key: "dictionaries"
 
@@ -280,6 +290,12 @@ clickhouse_server_config:
   builtin_dictionaries_reload_interval: 3600
   max_session_timeout: 3600
   default_session_timeout: 60
+  max_table_size_to_drop: 10000000000
+
+# clickhouse_compression:
+# - min_part_size: 10000000000
+#   min_part_size_ratio: "0.01"
+#   method: "zstd"
 
 clickhouse_docker_env_vars:
   CLICKHOUSE_CONFIG: "/etc/clickhouse-server/config.xml"
@@ -332,7 +348,9 @@ clickhouse_internal_replication: "false"
 ### Use ssl for connection, usually you also should define port = 9440. Server should listen on <tcp_port_secure>9440</tcp_port_secure> and have correct certificates.
 clickhouse_interserver_tcp_ssl: false
 ### If a user is not set, and '<secret></secret>' is defined, then the initial_user (the user who initiated the query) should be used
-clickhouse_interserver_user: "interserver-user"
+
+clickhouse_interserver_distributed_auth_enabled: true    # requires 'clickhouse_interserver_user' (the user should exist in the users.xml, ClickHouse knows how to get its password)
+clickhouse_interserver_http_auth_enabled: true    # requires 'interserver_http_auth_user' and 'interserver_http_auth_password'
 
 ################################
 ###     SSL CERTIFICATES     ###
@@ -346,18 +364,20 @@ clickhouse_node_cert_name: "server.crt"
 clickhouse_node_key_name: "server.key"
 clickhouse_node_dhparam_name: "dhparam.pem"
 
-### Shell command for generating a Root CA and key: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out root-ca.pem -days 3650 -nodes -subj "/C=US/ST=NY/L=NewYork/O=MyOrganization/OU=IT/CN=clickhouse.local/emailAddress=admin@clickhouse.local"
-clickhouse_openssl_csr:
-  common_name: "clickhouse.local"
-  country_name: "US"
-  state_or_province_name: "NY"
-  locality_name: "NY"
-  organizational_unit_name: "IT"
-  organization_name: "MyOrganization"
-  email_address: "admin@clickhouse.local"
-  subject_alt_name:
-    - "DNS:{{ clickhouse_node_hostname }}"
-    - "IP:{{ ansible_host }}"
+### Shell command for generating a Root CA and key: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out root-ca.pem -days 7300 -nodes -subj "/C=US/ST=NY/L=NewYork/O=MyOrganization/OU=IT/CN=clickhouse.local/emailAddress=admin@clickhouse.local"
+clickhouse_openssl:
+  valid_to: "+365d"
+  csr:
+    common_name: "clickhouse.local"
+    country_name: "US"
+    state_or_province_name: "NY"
+    locality_name: "NY"
+    organizational_unit_name: "IT"
+    organization_name: "MyOrganization"
+    email_address: "admin@clickhouse.local"
+    subject_alt_name:
+      - "DNS:{{ clickhouse_node_hostname }}"
+      - "IP:{{ ansible_host }}"
 
 clickhouse_ssl:
 ### Default HTTP interface
@@ -455,17 +475,21 @@ clickhouse_users_custom: []
 ###     CLICKHOUSE ADDITIONAL CONFIGS   ###
 ###########################################
 clickhouse_logger:
-  server-log:
+  server_log:
     level: trace
     log: "{{ clickhouse_default_log_dir }}/clickhouse-server.log"
     errorlog: "{{ clickhouse_default_log_dir }}/clickhouse-server.err.log"
     size: 1000M
     count: 10
-  query-log:
+  query_log:
     database: "system"
     table: "query_log"
     partition_by: "toYYYYMM(event_date)"
     flush_interval_milliseconds: 7500
+  # part_log:
+  #   database: "system"
+  #   table: "part_log"
+  #   flush_interval_milliseconds: 7500
 
 clickhouse_dicts: []
 
@@ -476,6 +500,30 @@ clickhouse_zookeeper_config:
   distributed_ddl:
     path: "/clickhouse/{{ clickhouse_cluster_name }}/task_queue/ddl"
 
+###################################
+###     CLICKHOUSE MONITORING   ###
+###################################
+# clickhouse_monitoring:
+#   type: "prometheus"
+#   config_opts:
+#     endpoint: "/metrics"
+#     port: "8001"
+#     metrics: true
+#     events: true
+#     asynchronous_metrics: true
+
+# clickhouse_monitoring:
+#   type: "graphite"
+#   config_opts:
+#     host: "localhost"
+#     port: 42000
+#     timeout: "0.1"
+#     interval: 60
+#     root_path: "one_min"
+#     metrics: true
+#     events: true
+#     events_cumulative: false
+#     asynchronous_metrics: true
 
 ################################################
 ###     CLICKHOUSE POST INSTALLATION TASKS   ###
@@ -489,13 +537,14 @@ clickhouse_dbs: "{{ clickhouse_dbs_default + clickhouse_dbs_custom }}"
 
 ### CUSTOM SQL SCRIPTS
 clickhouse_custom_sql_scripts:
-  path_local: "{{ playbook_dir }}/sql-scripts"
+  path_local: "{{ playbook_dir }}/sql-scripts"    # local path that will be searched for SQL scripts; if used with 'git', this path should match with the git destination directory or be its subdirectory
   ### If 'path_remote' is set, then Ansible will copy your SQL scripts FROM the local machine TO one of the remote ClickHouse nodes for further execution of SQL queries one the 'ClickHouse localhost'
-  path_remote: "/tmp/custom_sql_scripts"
-  search_patterns: ["*.sql"]
-  search_excludes: []
-  use_regex: false    # fales - use Shell regex, true - use Python regex
+  path_remote: "/tmp/custom_sql_scripts"    # it 'path_remote' is defined, the SQL scripts will be copied to a remote ClickHouse node for further execution on that node; otherwise, the SQL scripts will be executed on the machine where Ansible is running (make sure it has permissison to execute ClickHouse commands)
+  search_patterns: ["*.sql"]    # search for patterns
+  search_excludes: ["*_test.sql"]    # exclude patterns from search results
+  use_regex: false    # false - use Shell regex, true - use Python regex
   search_recursively: true    # search for SQL scripts in the directory and its subdirectories
+  sql_scripts_are_jinja: true    # when SQL scripts are transferred to the remote ClickHouse server for execution, they will be interpreted as Jinja templates, thus '{{ }}' will be interpreted as variables
   ### if 'git' is set, then Ansible will attempt to clone the git repo with your SQL scripts to the local directory
   git:
     repo: "git@github.com:myteam/my-repo.git"

@@ -249,6 +249,7 @@ clickhouse_limits_docker:
 ###     CLICKHOUSE CONFIGS     ###
 ##################################
 
+### Installation on host is preferrable. Installation in Docker has not been properly tested so use at your own risk
 clickhouse_installation_type: "host"        # Available options: host, docker
 
 clickhouse_cluster_name: "clickhouse-staging"
@@ -267,6 +268,7 @@ clickhouse_server_config:
   builtin_dictionaries_reload_interval: 3600
   max_session_timeout: 3600
   default_session_timeout: 60
+  max_table_size_to_drop: 10000000000
 
 clickhouse_docker_log_options:
   max-file: 10
