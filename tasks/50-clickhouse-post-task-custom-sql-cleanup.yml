@@ -1,0 +1,8 @@
+---
+
+- name: CLICKHOUSE POST INSTALLATION TASK | Custom SQL Scripts Clean Up
+  file:
+    path: "{{ item }}"
+    state: "absent"
+  with_items: "{{ sql_scripts_list }}"
+  tags: [post_task]
