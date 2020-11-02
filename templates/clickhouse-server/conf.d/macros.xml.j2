@@ -4,7 +4,7 @@
 <yandex>
   <macros>
   	<cluster>{{ clickhouse_cluster_name }}</cluster>
-    <shard>{{ clickhouse_macro['shard'] }}</shard>
-    <replica>{{ clickhouse_macro['replica'] }}</replica>
+    <shard>{{ hostvars[inventory_hostname]['ch_shard'] }}</shard>
+    <replica>{{ hostvars[inventory_hostname]['ch_fqdn'] }}</replica>
   </macros>
 </yandex>

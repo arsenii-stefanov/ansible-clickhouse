@@ -4,7 +4,7 @@
 <yandex>
   <remote_servers>
     <{{ clickhouse_cluster_name }}>
-{% for item in clickhouse_shard_numbers %}
+{% for item in clickhouse_cluster['shards'] %}
       <shard>
 {% if clickhouse_interserver_secret is defined and clickhouse_interserver_secret != "" %}
         <!-- Optional. Inter-server per-cluster secret for Distributed queries
@@ -21,7 +21,7 @@
 {% endif %}
         <!-- Optional. Whether to write data to just one of the replicas. Default: false (write data to all replicas). -->
         <internal_replication>{{ clickhouse_internal_replication }}</internal_replication>
-{% for replica in hostvars[inventory_hostname]['clickhouse_cluster'] | json_query("shards[?ch_shard=='" + item + "']") %}
+{% for replica in item['shard'] %}
         <replica>
           <!--
           host - The address of the remote server. You can use either the domain or the IPv4 or IPv6 address. If you specify the domain, the server makes a DNS request
