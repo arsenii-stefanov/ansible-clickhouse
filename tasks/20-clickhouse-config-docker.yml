@@ -18,6 +18,16 @@
   with_items: "{{ clickhouse_directories_container }}"
   tags: [configure_clickhouse]
 
+- name: CLICKHOUSE CONFIG TASK | Get a List of All Shards In the ClickHouse Cluster
+  set_fact:
+    clickhouse_shard_numbers: "{{ hostvars[inventory_hostname]['clickhouse_cluster'] | json_query(query) | unique | sort }}"
+  vars:
+    query: "shards[*].ch_shard"
+
+- name: CLICKHOUSE CONFIG TASK | Show ClickHouse Shards
+  debug:
+    msg: "{{ clickhouse_shard_numbers }}"
+
 - name: CLICKHOUSE CONFIG TASK | Ensure That Config Files Exist [Docker]
   template:
     src: "{{ item.src }}"

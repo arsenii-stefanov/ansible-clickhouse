@@ -20,22 +20,96 @@
 ## Config example with a minimum set of parameters required to set up a ClickHouse cluster with Zookeeper
 
 ```
-* `FILE: {{ playbook_dir }}/inventory-clickhouse-staging`
+* `FILE: {{ playbook_dir }}/inventory-clickhouse-staging.yml`
 ```
 
 ```
-[clickhouse]
-ch-stg-01-01 ansible_host=10.226.10.110 ansible_user=jenkins-deploy ansible_port=22 ch_shard=01 ch_replica=01 gce_zone=us-east4-a
-ch-stg-01-02 ansible_host=10.226.10.111 ansible_user=jenkins-deploy ansible_port=22 ch_shard=01 ch_replica=02 gce_zone=us-east4-b
-ch-stg-02-01 ansible_host=10.226.10.112 ansible_user=jenkins-deploy ansible_port=22 ch_shard=02 ch_replica=01 gce_zone=us-east4-c
-ch-stg-02-02 ansible_host=10.226.10.113 ansible_user=jenkins-deploy ansible_port=22 ch_shard=02 ch_replica=02 gce_zone=us-east4-a
-ch-stg-03-01 ansible_host=10.226.10.114 ansible_user=jenkins-deploy ansible_port=22 ch_shard=03 ch_replica=01 gce_zone=us-east4-b
-ch-stg-03-02 ansible_host=10.226.10.115 ansible_user=jenkins-deploy ansible_port=22 ch_shard=03 ch_replica=02 gce_zone=us-east4-c
+---
 
-[zookeeper]
-zk-ch-stg-1 zookeeper_myid=1 ansible_host=10.226.10.116 ansible_user=jenkins-deploy ansible_port=22 gce_zone=us-east4-a
-zk-ch-stg-2 zookeeper_myid=2 ansible_host=10.226.10.117 ansible_user=jenkins-deploy ansible_port=22 gce_zone=us-east4-b
-zk-ch-stg-3 zookeeper_myid=3 ansible_host=10.226.10.118 ansible_user=jenkins-deploy ansible_port=22 gce_zone=us-east4-c
+all:
+  hosts:
+clickhouse:
+  hosts:
+    ch-blu-stag-001:
+      ansible_host: 10.226.10.110
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      ch_shard: shard_1
+      ch_fqdn: ch-blu-stag-001.us-east4-a.c.my-gcp-project.internal
+    ch-blu-stag-002:
+      ansible_host: 10.226.10.111
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      ch_shard: shard_1
+      ch_fqdn: ch-blu-stag-002.us-east4-b.c.my-gcp-project.internal
+    ch-blu-stag-003:
+      ansible_host: 10.226.10.112
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      ch_shard: shard_2
+      ch_fqdn: ch-blu-stag-003.us-east4-c.c.my-gcp-project.internal
+    ch-blu-stag-004:
+      ansible_host: 10.226.10.113
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      ch_shard: shard_2
+      ch_fqdn: ch-blu-stag-004.us-east4-a.c.my-gcp-project.internal
+    ch-blu-stag-005:
+      ansible_host: 10.226.10.114
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      ch_shard: shard_3
+      ch_fqdn: ch-blu-stag-005.us-east4-b.c.my-gcp-project.internal
+    ch-blu-stag-006:
+      ansible_host: 10.226.10.115
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      ch_shard: shard_3
+      ch_fqdn: ch-blu-stag-006.us-east4-c.c.my-gcp-project.internal
+  vars:
+    clickhouse_cluster:
+      shards:
+        - host: ch-blu-stag-001.us-east4-a.c.my-gcp-project.internal
+          ch_shard: shard_1
+        - host: ch-blu-stag-002.us-east4-b.c.my-gcp-project.internal
+          ch_shard: shard_1
+        - host: ch-blu-stag-003.us-east4-c.c.my-gcp-project.internal
+          ch_shard: shard_2
+        - host: ch-blu-stag-004.us-east4-a.c.my-gcp-project.internal
+          ch_shard: shard_2
+        - host: ch-blu-stag-005.us-east4-b.c.my-gcp-project.internal
+          ch_shard: shard_3
+        - host: ch-blu-stag-006.us-east4-c.c.my-gcp-project.internal
+          ch_shard: shard_3
+    clickhouse_zookeeper_nodes:
+      - host: zk-blu-stag-001.us-east4-a.c.my-gcp-project.internal
+      - host: zk-blu-stag-002.us-east4-b.c.my-gcp-project.internal
+      - host: zk-blu-stag-003.us-east4-c.c.my-gcp-project.internal
+zookeeper:
+  hosts:
+    zk-blu-stag-001:
+      ansible_host: 10.226.20.110
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      zookeeper_myid: 1
+      zk_fqdn: zk-blu-stag-001.us-east4-a.c.my-gcp-project.internal
+    zk-blu-stag-002:
+      ansible_host: 10.226.20.111
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      zookeeper_myid: 1
+      zk_fqdn: zk-blu-stag-002.us-east4-b.c.my-gcp-project.internal
+    zk-blu-stag-003:
+      ansible_host: 10.226.20.112
+      ansible_user: jenkins-infra
+      ansible_port: 22
+      zookeeper_myid: 1
+      zk_fqdn: zk-blu-stag-003.us-east4-c.c.my-gcp-project.internal
+  vars:
+    zookeeper_nodes_dns:
+      - zk-blu-stag-001.us-east4-a.c.my-gcp-project.internal
+      - zk-blu-stag-002.us-east4-b.c.my-gcp-project.internal
+      - zk-blu-stag-003.us-east4-c.c.my-gcp-project.internal
 ```
 
 ### THE FOLLOWING HOSTVARS ARE OBLIGATORY: 'ch_shard', 'ch_replica', 'zookeeper_myid'
@@ -274,36 +348,7 @@ clickhouse_docker_log_options:
   max-file: 10
   max-size: "100m"
 
-clickhouse_cluster:
-  shards:
-    - shard:
-      - host: "ch-stg-01-01.{{ hostvars['ch-stg-01-01'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-        priority: 1
-      - host: "ch-stg-01-02.{{ hostvars['ch-stg-01-02'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-        priority: 1
-    - shard:
-      - host: "ch-stg-02-01.{{ hostvars['ch-stg-02-01'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-        priority: 1
-      - host: "ch-stg-02-02.{{ hostvars['ch-stg-02-02'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-        priority: 1
-    - shard:
-      - host: "ch-stg-03-01.{{ hostvars['ch-stg-03-01'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-        priority: 1
-      - host: "ch-stg-03-02.{{ hostvars['ch-stg-03-02'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-        priority: 1
-
-clickhouse_macro:
-  shard: "{{ hostvars[inventory_hostname].ch_shard }}"
-  replica: "{{ hostvars[inventory_hostname].ch_replica }}"
-
-clickhouse_zookeeper_nodes:
-  - host: "zk-ch-stg-1.{{ hostvars['zk-ch-stg-1'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-    port: 2181
-#    secure: 1    # You may enable secure connection to each Zookeeper node if it has SSL configured
-  - host: "zk-ch-stg-2.{{ hostvars['zk-ch-stg-2'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-    port: 2181
-  - host: "zk-ch-stg-3.{{ hostvars['zk-ch-stg-3'].gce_zone }}.c.{{ gcp_project_id }}.internal"
-    port: 2181
+clickhouse_node_hostname: "{{ hostvars[inventory_hostname]['ch_fqdn'] }}"
 
 ### User+password authentication
 clickhouse_zookeeper_auth: true
