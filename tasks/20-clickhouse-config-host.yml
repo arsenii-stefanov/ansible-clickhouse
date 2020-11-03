@@ -41,10 +41,12 @@
     clickhouse_shard_numbers: "{{ hostvars[inventory_hostname]['clickhouse_cluster'] | json_query(query) | unique | sort }}"
   vars:
     query: "shards[*].ch_shard"
+  tags: [configure_clickhouse]
 
 - name: CLICKHOUSE CONFIG TASK | Show ClickHouse Shards
   debug:
     msg: "{{ clickhouse_shard_numbers }}"
+  tags: [configure_clickhouse]
 
 - name: CLICKHOUSE CONFIG TASK | Ensure That Config Files Exist [Host]
   template:
